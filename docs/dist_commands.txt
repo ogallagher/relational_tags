@@ -1,0 +1,9 @@
+# move to python source root
+cd src/python
+
+# build wheel file
+python -m build -o ../../dist/python
+
+# upload to test.pypi
+python -m twine upload --repository testpypi ../../dist/python/*
+
