@@ -9,10 +9,11 @@
 from typing import List, Dict, Union, Any, Tuple
 import logging
 from logging import Logger
+import json
 
 # module vars
 
-VERSION:str = '0.0.4'
+VERSION:str = '0.0.5'
 """Package version.
 """
 
@@ -149,7 +150,7 @@ class RelationalTag:
             
             # delete references from others
             for connection in tag.connections.values():
-                other = connection.source
+                other = connection.target
                 
                 if isinstance(other, RelationalTag):
                     # disconnect from other tag
@@ -157,7 +158,7 @@ class RelationalTag:
                 
                 else:
                     # disconnect from entity
-                    del _tagged_entities[other][tag]
+                    del cls._tagged_entities[cls._entity_to_hashable(other)][tag]
             # end for connection in connections
             
             # delete tag
@@ -250,12 +251,12 @@ class RelationalTag:
                     # tag to many
                     for val in value:
                         ttag = cls.get(val, new_if_missing=True)
-                        cls.connect(tag=rtag, target=ttag, connection_type=tag_tag_type)
+                        cls.connect(tag_or_connection=rtag, target=ttag, connection_type=tag_tag_type)
                 
                 elif isinstance(value,str):
                     # tag to one
                     ttag = cls.get(value, new_if_missing=True)
-                    cls.connect(tag=rtag, target=ttag, connection_type=tag_tag_type)
+                    cls.connect(tag_or_connection=rtag, target=ttag, connection_type=tag_tag_type)
                 
                 else:
                     raise RelationalTagError(
@@ -270,7 +271,7 @@ class RelationalTag:
                 type=RelationalTagError.TYPE_WRONG_TYPE
             )
         
-        return cls.all_tags.values()
+        return list(cls.all_tags.values())
     # end load
     
     @classmethod
@@ -295,41 +296,48 @@ class RelationalTag:
     # end _hashable_to_entity
     
     @classmethod
-    def connect(cls, tag:'RelationalTag', target:Union['RelationalTag',Any], connection_type:int=None) -> 'RelationalTagConnection':
+    def connect(cls, tag_or_connection:Union['RelationalTag','RelationalTagConnection'], target:Union['RelationalTag',Any]=None, connection_type:int=None) -> 'RelationalTagConnection':
         """Connect a tag with a target.
         """
         
-        # resolve connection type
-        if connection_type is None:
-            if isinstance(target,RelationalTag):
-                connection_type = RelationalTagConnection.TO_TAG_UNDIRECTED
-            else:
-                connection_type = RelationalTagConnection.TO_ENT
+        if isinstance(tag_or_connection, RelationalTagConnection):
+            connection:RelationalTagConnection = tag_or_connection
+            cls.connect(connection.source, connection.target, connection.type)
         
-        # connection
-        connection = RelationalTagConnection(
-            source=tag,
-            target=target,
-            connection_type=connection_type
-        )
-        tag.connections[cls._entity_to_hashable(target)] = connection
-        
-        # inverse connection
-        inverse_connection = connection.inverse()
-        if isinstance(target,RelationalTag):
-            # tag connection
-            target.connections[tag] = inverse_connection
         else:
-            # entity connection
-            entity = cls._entity_to_hashable(target)
+            tag:RelationalTag = tag_or_connection
             
-            if not entity in cls._tagged_entities:
-                cls._tagged_entities[entity] = {}
-            
-            cls._tagged_entities[entity][tag] = inverse_connection
+            # resolve connection type
+            if connection_type is None:
+                if isinstance(target,RelationalTag):
+                    connection_type = RelationalTagConnection.TO_TAG_UNDIRECTED
+                else:
+                    connection_type = RelationalTagConnection.TO_ENT
         
-        # return
-        return connection
+            # connection
+            connection = RelationalTagConnection(
+                source=tag,
+                target=target,
+                connection_type=connection_type
+            )
+            tag.connections[cls._entity_to_hashable(target)] = connection
+        
+            # inverse connection
+            inverse_connection = connection.inverse()
+            if isinstance(target,RelationalTag):
+                # tag connection
+                target.connections[tag] = inverse_connection
+            else:
+                # entity connection
+                entity = cls._entity_to_hashable(target)
+            
+                if not entity in cls._tagged_entities:
+                    cls._tagged_entities[entity] = {}
+            
+                cls._tagged_entities[entity][tag] = inverse_connection
+        
+            # return
+            return connection
     # end connect
     
     @classmethod
@@ -381,6 +389,82 @@ class RelationalTag:
         return tagged_entities
     # end get_tagged_entities
     
+    @classmethod
+    def load_json(cls, json_in:str) -> List['RelationalTag']:
+        """Load all tags and connections from a json string created by `RelationalTag.save_json`.
+        """
+        
+        tag_dicts:List[Dict] = json.loads(json_in)
+        
+        cls.load(tags=[
+            cls.load_tag(tag_dict)
+            for tag_dict in tag_dicts
+        ])
+        
+        return list(cls.all_tags.values())
+    # end load_json
+    
+    @classmethod
+    def save_json(cls) -> str:
+        """Save all tags and connections as a json string.
+        
+        Entities not included.
+        """
+        
+        return '[{}]'.format(
+            ','.join([
+                str(tag) for tag in cls.all_tags.values()
+            ])
+        )
+    # end save_json
+    
+    @classmethod
+    def load_tag(cls, tag_str:Union[str,Dict], get_if_exists:bool=True) -> 'RelationalTag':
+        """Load a tag from its json string representation, or equivalent dict.
+        """
+        
+        # { name: [ [src,type,target] ... ] }
+        if isinstance(tag_str,Dict):
+            tag_json = tag_str
+        else:
+            tag_json:Dict[str,List[List[str]]] = json.loads(tag_str)
+        
+        tag = cls.new(list(tag_json.keys())[0], get_if_exists)
+        
+        conn_arrs = tag_json[tag.name]
+        for conn_arr in conn_arrs:
+            connection_type = RelationalTagConnection.str_to_type(conn_arr[1])
+            if connection_type in RelationalTagConnection._TAG_TAG_TYPES:
+                target_tag = cls.get(conn_arr[2])
+                
+                cls.connect(
+                    tag_or_connection=tag, 
+                    connection_type=connection_type,
+                    target=target_tag
+                )
+            else:
+                cls.log.warning('loading of a tag-entity connection is not supported: {}-{}-{}'.format(
+                    conn_arr[0], 
+                    connection_type,
+                    conn_arr[2]
+                ))
+        # end for conn_str in conns
+        
+        return tag
+    # end from_string
+    
+    @classmethod
+    def save_tag(cls, tag:Union[str,'RelationalTag']) -> str:
+        """Export the given tag or tag of given name as a string."""
+        
+        # convert to RelationalTag
+        if isinstance(tag,str):
+            tag = cls.get(name=tag, new_if_missing=False)
+        
+        # export
+        return str(tag)
+    # end save_tag
+    
     def __init__(self, name:str):
         """RelationalTag constructor.
         """
@@ -411,9 +495,9 @@ class RelationalTag:
         """RelationalTag string representation.
         """
         
-        return '{}[{}]'.format(
+        return '{{"{}":[{}]}}'.format(
             self.name,
-            ' '.join([str(conn) for conn in self.connections.values()])
+            ','.join([str(conn) for conn in self.connections.values()])
         )
     # end __str__
     
@@ -431,7 +515,11 @@ class RelationalTag:
         Calls the class method `RelationalTag.connect`.
         """
         
-        type(self).connect(tag=self,target=other,connection_type=connection_type)
+        type(self).connect(
+            tag_or_connection=self,
+            target=other,
+            connection_type=connection_type
+        )
     # end connect_to
     
     def disconnect_to(self, other:Union['RelationalTag',Any]):
@@ -507,6 +595,9 @@ class RelationalTagConnection:
     
     @classmethod
     def type_to_str(cls,type:int) -> str:
+        """Convert connection type code to string.
+        """
+        
         if type == cls.TO_TAG_UNDIRECTED:
             return 'to-tag-undirected'
         
@@ -522,6 +613,27 @@ class RelationalTagConnection:
         elif type == cls.ENT_TO_TAG:
             return 'entity-to-tag'
     # end type_to_str
+    
+    @classmethod
+    def str_to_type(cls,string:str) -> int:
+        """Convert connection type string to code.
+        """
+        
+        if string == 'to-tag-undirected':
+            return cls.TO_TAG_UNDIRECTED
+        
+        elif string == 'to-tag-parent':
+            return cls.TO_TAG_PARENT
+        
+        elif string == 'to-tag-child':
+            return cls.TO_TAG_CHILD
+            
+        elif string == 'to-entity':
+            return cls.TO_ENT
+            
+        elif string == 'entity-to-tag':
+            return cls.ENT_TO_TAG
+    # end str_to_type
     
     @classmethod
     def inverse_type(cls,type:int) -> int:
@@ -540,6 +652,38 @@ class RelationalTagConnection:
         else:
             return type
     # end reverse_type
+    
+    @classmethod
+    def load_connection(cls, connection_str:str) -> 'RelationalTagConnection':
+        """Load connection from string representation.
+        """
+        
+        connection_arr:List[str] = json.loads(connection_str)
+        
+        if len(connection_arr) == 3:
+            source_name = connection_arr[0]
+            connection_type = cls.str_to_type(connection_arr[1])
+            target_name = connection_arr[2]
+            
+            if connection_type in cls._TAG_TAG_TYPES:
+                return RelationalTagConnection(
+                    source=RelationalTag.get(source_name),
+                    target=RelationalTag.get(target_name),
+                    connection_type=connection_type
+                )
+            
+            else:
+                cls.log.warning('loading of a tag-entity connection is not supported: {}-{}'.format(
+                    source_name, target_name
+                ))
+                return None
+            
+        else:
+            raise RelationalTagError(
+                'invalid connection string {}'.format(connection_str),
+                RelationalTagError.TYPE_FORMAT
+            )
+    # end load_connection
     
     def __init__(self, source:RelationalTag, target:Union[RelationalTag,Any], connection_type=TO_ENT):
         """RelationalTagConnection constructor.
@@ -585,7 +729,7 @@ class RelationalTagConnection:
         else:
             target_str = self.target
         
-        return '{}={}={}'.format(source_str,cls.type_to_str(self.type),target_str)
+        return '["{}","{}","{}"]'.format(source_str,cls.type_to_str(self.type),target_str)
     # end __str__
     
     def __eq__(self, other) -> bool:
@@ -625,6 +769,7 @@ class RelationalTagError(Exception):
     TYPE_MISSING = 2
     TYPE_WRONG_TYPE = 3
     TYPE_HASH_FAIL = 4
+    TYPE_FORMAT = 5
     
     def __init__(self, message, type=TYPE_COLLISION):
         """RelationalTagError constructor.
@@ -668,14 +813,29 @@ connect = RelationalTag.connect
 disconnect = RelationalTag.disconnect
 """Alias for `RelationalTag.disconnect`"""
 
+load_json = RelationalTag.load_json
+"""Alias for `RelationalTag.load_json`"""
+
+save_json = RelationalTag.save_json
+"""Alias for `RelationalTag.save_json`"""
+
+load_tag = RelationalTag.load_tag
+"""Alias for `RelationalTag.load_tag`"""
+
+save_tag = RelationalTag.save_tag
+"""Alias for `RelationalTag.save_tag`"""
+
 # exports
 
 __all__ = [
     'VERSION',
+    
     'RelationalTag',
     'RelationalTagConnection',
     'RelationalTagError',
+    
     'all_tags',
+    
     'config',
     'new',
     'get',
@@ -683,5 +843,9 @@ __all__ = [
     'clear',
     'load',
     'connect',
-    'disconnect'
+    'disconnect',
+    'load_json',
+    'save_json',
+    'load_tag',
+    'save_tag'
 ]

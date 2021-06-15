@@ -24,7 +24,7 @@ class TestEntity:
 
 # module vars
 
-VERSION:str = '0.0.2'
+VERSION:str = '0.0.5'
 
 log:logging.Logger
 
@@ -119,7 +119,7 @@ def flat_tags(tag_names:List[str], entities:List[Any]) -> Tuple[str,int,int]:
         for _ in range(tags_per_entity):
             # tag entities with class method
             RelationalTag.connect(
-                tag=RelationalTag.get(random.choice(tag_names)),
+                tag_or_connection=RelationalTag.get(random.choice(tag_names)),
                 target=entity
             )
             
@@ -145,6 +145,25 @@ def flat_tags(tag_names:List[str], entities:List[Any]) -> Tuple[str,int,int]:
         fails += 1
         log.error('failed to tag {} entities; found {} tagged entities'.format(
             len(entities), len(tagged_entities)
+        ))
+    
+    # save and load single tag
+    rtag_name = random.choice(tag_names)
+    rtag_og = RelationalTag.get(rtag_name)
+    rtag_str = RelationalTag.save_tag(rtag_name)
+    rtag_og.delete_self()
+    rtag_load = RelationalTag.load_tag(rtag_str)
+    if rtag_og == rtag_load:
+        passes += 1
+        log.debug('saved and reloaded tag {} as {}'.format(
+            rtag_og,
+            rtag_load
+        ))
+    else:
+        fails += 1
+        log.error('failed to save and reload {} as {}'.format(
+            rtag_og,
+            rtag_load
         ))
     
     return (name, passes, fails)
@@ -184,6 +203,24 @@ def hier_tags(hier_tag_names:Dict[str,List[str]], entities:List[Any]) -> Tuple[s
         log.error('input tags: {}'.format(' '.join(unique_tag_names)))
         log.error('output tags: {}'.format(' '.join([rtag.name for rtag in rtags])))
     
+    # save and load single tag
+    rtag_og = random.choice(rtags)
+    rtag_str = str(rtag_og)
+    rtag_og.delete_self()
+    rtag_load = RelationalTag.load_tag(rtag_str)
+    if rtag_og == rtag_load:
+        passes += 1
+        log.debug('saved and reloaded tag {} as {}'.format(
+            rtag_og,
+            rtag_load
+        ))
+    else:
+        fails += 1
+        log.error('failed to save and reload {} as {}'.format(
+            rtag_og,
+            rtag_load
+        ))
+    
     return (name,passes,fails)
 # end rel_tags
 
@@ -192,12 +229,30 @@ def module_funcs(hier_tag_names:Dict[str,List[str]], entities:List[Any]) -> Tupl
     passes = 0
     fails = 0
     
+    # module.clear
     rtags.clear()
     if len(rtags.all_tags.keys()) == 0:
         passes += 1
     else:
         fails += 1
         log.error('failed to clear tags with module.clear; {} remaining'.format(len(rtags.all_tags.keys())))
+    
+    # populate tag system
+    tags_og = rtags.load(tags=hier_tag_names,tag_tag_type=RelationalTagConnection.TO_TAG_CHILD)
+    tags_str = rtags.save_json()
+    rtags.clear()
+    log.debug('tags json:\n{}\n'.format(tags_str))
+    
+    tags_load = rtags.load_json(tags_str)
+    
+    if len(tags_og) == len(tags_load):
+        passes += 1
+    else:
+        fails += 1
+        log.error('failed to save and reload relational tag systems of length {} != {}'.format(
+            len(tags_og),
+            len(tags_load)
+        ))
     
     return (name,passes,fails)
 # end module_funcs
@@ -256,11 +311,11 @@ def main():
     
     flat_tag_names = [
         'fruit',
-        'apple','banana','cinnamon','donut',
+        'apple','banana','cinnamon','orange',
         'animal',
         'elephant','fish','giraffe','hyena',
         'color',
-        'indigo','red','green','blue','yellow'
+        'indigo','red','green','blue','orange'
     ]
     
     hier_tag_names = {
