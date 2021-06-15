@@ -6,23 +6,27 @@
 
 # imports
 
-from typing import List, Dict, Union, Any, Tuple
+from typing import List, Dict, Union, Any, Tuple, Type
 import logging
 from logging import Logger
 import json
 
 # module vars
 
-VERSION:str = '0.0.5'
+VERSION:str = '0.0.6'
 """Package version.
 """
 
 # types
 
 class HashableEntity:
-    """If an entity is not hashable, it is wrapped with this class.
+    """If an entity is not hashable, it is wrapped automatically with this class.
     
     You should not need to use this class yourself.
+    
+    If you want to create entities that have full support for relational tagging, 
+    including being saved to a relational tags file and loaded from one, see
+    `RelationalEntity`.
     """
     
     def __init__(self, entity:Any):
@@ -56,6 +60,114 @@ class HashableEntity:
         return self.hash
     # end __hash__
 # end HashableEntity
+
+class RelationalEntity:
+    """Relational entity abstract class.
+    
+    Subclass this abstract class and implement the required methods in order to 
+    define an entity that is fully compatible with relational tagging.
+    
+    Note it is not necessary to use RelationalEntity subclasses in order to 
+    use relational tagging; anything can be an entity and can be tagged. However, 
+    subclasses if `RelationalEntity` are required in order to include them in the
+    built-in persistence methods provided: `save_json`, `load_json`.
+    """
+    
+    _ATTR_CLASS:str = 'class'
+    
+    classes:Dict[str,Type['RelationalEntity']] = {}
+    """Maintains a name-class dictionary for identifying serialized subclass instances.
+    
+    Sublasses of `RelationalEntity` are automatically added to this dictionary with
+    `RelationalEntity.__init__`.
+    """
+    
+    @classmethod
+    def load_entity(cls, entity_json:Union[str,Dict]) -> 'RelationalEntity':
+        """A relational entity must be able to deserialize itself.
+        
+        Note this method will be used to deserialize an entity from its json string
+        representation, or equivalent python dict.
+        
+        ## Args
+        
+        **entity_json** Either a json representation of the entity (created from 
+        `RelaionalEntity.__str__`, or an equivalent python dict)
+        """
+        
+        raise NotImplementedError(
+            'RelationalEntity is an abstract class; subclass implements load_entity'
+        )
+    # end load_entity
+    
+    def __init__(self):
+        """## RelationalEntity constructor.
+        
+        A subclass with its own constructor should call this superconstructor with:
+        
+        ```
+        super().__init__()
+        ```
+        
+        or implement equivalent code in its own constructor.
+        """
+        
+        cls_name = RelationalEntity.__name__
+        if cls_name not in RelationalEntity.classes:
+            RelationalEntity.classes[cls_name] = RelationalEntity
+        
+        subcls = type(self)
+        RelationalEntity.classes[subcls.__name__] = subcls
+    # end __init__
+    
+    def __hash__(self):
+        """A relational entity must be hashable.
+        
+        This method will be used to check equivalence between different entities and
+        to use them as dictionary keys for quick access.
+        """
+        
+        raise NotImplementedError(
+            'RelationalEntity is an abstract class; subclass implements __hash__'
+        )
+    # end __hash__
+    
+    def __eq__(self, other) -> bool:
+        """Default implementation of equality.
+        
+        You should not need to override this method unless you want more strict equality
+        checking.
+        """
+        
+        return hash(self) == hash(other)
+    # end __eq__
+    
+    def __str__(self) -> str:
+        """A relational entity must be able to serialize itself.
+        
+        Note this method will be used to serialize this instance so that it can be included
+        in a relational tags json save file.
+        
+        ## Requirements
+        
+        Compatible with overridden `RelationalEntity.load_entity`.
+        
+        The resultant string is valid json.
+        
+        The json string represents a dictionary with the following initial structure:
+        
+        ```
+        {
+            "class": "<class-name>"  # <class-name> = type(self).__name__
+        }
+        ```
+        """
+        
+        raise NotImplementedError(
+            'RelationalEntity is an abstract class; subclass implements __str__'
+        )
+    # end __str__
+# end RelationalEntity
 
 class RelationalTag:
     """Relational tag class.
@@ -275,8 +387,10 @@ class RelationalTag:
     # end load
     
     @classmethod
-    def _entity_to_hashable(cls,entity:Any) -> Union[HashableEntity,Any]:
+    def _entity_to_hashable(cls,entity:Union[RelationalEntity,Any]) -> Union[HashableEntity,RelationalEntity,Any]:
         """Wraps the entity in a `HashableEntity` instance if not hashable already.
+        
+        A `RelationalEntity` subclass instance will be hashable, so it will be left alone.
         """
         
         if '__hash__' in dir(entity) and entity.__hash__ is not None:
@@ -321,7 +435,7 @@ class RelationalTag:
                 connection_type=connection_type
             )
             tag.connections[cls._entity_to_hashable(target)] = connection
-        
+            
             # inverse connection
             inverse_connection = connection.inverse()
             if isinstance(target,RelationalTag):
@@ -330,10 +444,10 @@ class RelationalTag:
             else:
                 # entity connection
                 entity = cls._entity_to_hashable(target)
-            
+                
                 if not entity in cls._tagged_entities:
                     cls._tagged_entities[entity] = {}
-            
+                
                 cls._tagged_entities[entity][tag] = inverse_connection
         
             # return
@@ -442,12 +556,31 @@ class RelationalTag:
                     connection_type=connection_type,
                     target=target_tag
                 )
+            
             else:
-                cls.log.warning('loading of a tag-entity connection is not supported: {}-{}-{}'.format(
-                    conn_arr[0], 
-                    connection_type,
-                    conn_arr[2]
-                ))
+                try:
+                    target_entity_json:Dict = conn_arr[2]
+                    target_entity_cls:Type = RelationalEntity.classes[
+                        target_entity_json[RelationalEntity._ATTR_CLASS]
+                    ]
+                    
+                    target_entity:RelationalEntity = target_entity_cls.load_entity(
+                        entity_json=target_entity_json
+                    )
+                    
+                    cls.connect(
+                        tag_or_connection=tag,
+                        connection_type=connection_type,
+                        target=target_entity
+                    )
+                    
+                except (KeyError, json.decoder.JSONDecodeError) as e:
+                    cls.log.warning('loading of a tag-entity connection for {} is not supported: {}-{}-{}'.format(
+                        conn_arr[2],
+                        conn_arr[0], 
+                        connection_type,
+                        conn_arr[2]
+                    ))
         # end for conn_str in conns
         
         return tag
@@ -661,22 +794,68 @@ class RelationalTagConnection:
         connection_arr:List[str] = json.loads(connection_str)
         
         if len(connection_arr) == 3:
-            source_name = connection_arr[0]
+            source_str = connection_arr[0]
             connection_type = cls.str_to_type(connection_arr[1])
-            target_name = connection_arr[2]
+            target_str = connection_arr[2]
+            invert:bool = False
             
-            if connection_type in cls._TAG_TAG_TYPES:
-                return RelationalTagConnection(
-                    source=RelationalTag.get(source_name),
-                    target=RelationalTag.get(target_name),
-                    connection_type=connection_type
-                )
-            
+            # load source
+            if isinstance(source_str,str):
+                source:RelationalTag = RelationalTag.get(source_str)
+                invert = False
+                
             else:
-                cls.log.warning('loading of a tag-entity connection is not supported: {}-{}'.format(
-                    source_name, target_name
-                ))
-                return None
+                invert = True
+                
+                try:
+                    source_json:Dict = source_str
+                    source_cls:Type = RelationalEntity.classes[
+                        source_json[RelationalEntity._ATTR_CLASS]
+                    ]
+                    source:RelationalEntity = source_cls(source_json)
+                
+                except:
+                    cls.log.warning('loading of a tag-entity connection for {} is not supported: {}-{}'.format(
+                        source_str,
+                        source_str, 
+                        target_str
+                    ))
+                    return None
+            # end else not str
+            
+            # load target
+            if isinstance(target_str,str):
+                target:RelationalTag = RelationalTag.get(target_str)
+                
+            else:
+                try:
+                    target_json:Dict = source_str
+                    target_cls:Type = RelationalEntity.classes[
+                        target_json[RelationalEntity._ATTR_CLASS]
+                    ]
+                    target:RelationalEntity = target_cls(target_json)
+                
+                except:
+                    cls.log.warning('loading of a tag-entity connection for {} is not supported: {}-{}'.format(
+                        target_str,
+                        source_str, 
+                        target_str
+                    ))
+                    return None
+            # end else not str
+            
+            if invert:
+                temp = source
+                source = target
+                target = temp
+                del temp
+            
+            # load connection
+            RelationalTag.connect(
+                tag_or_connection=source,
+                target=target,
+                connection_type=connection_type
+            )
             
         else:
             raise RelationalTagError(
@@ -720,16 +899,18 @@ class RelationalTagConnection:
         cls = type(self)
         
         if isinstance(self.source,RelationalTag):
-            source_str = self.source.name
+            # don't use __str__, as it would case recursion
+            source_str = '"{}"'.format(self.source.name)
         else:
-            source_str = self.source
+            source_str = str(self.source)
         
         if isinstance(self.target,RelationalTag):
-            target_str = self.target.name
+            # don't use __str__, as it would case recursion
+            target_str = '"{}"'.format(self.target.name)
         else:
-            target_str = self.target
+            target_str = str(self.target)
         
-        return '["{}","{}","{}"]'.format(source_str,cls.type_to_str(self.type),target_str)
+        return '[{},"{}",{}]'.format(source_str,cls.type_to_str(self.type),target_str)
     # end __str__
     
     def __eq__(self, other) -> bool:
@@ -798,6 +979,9 @@ new = RelationalTag.new
 get = RelationalTag.get
 """Alias for `RelationalTag.get`"""
 
+get_tagged_entities = RelationalTag.get_tagged_entities
+"""Alias for `RelationalTag.get_tagged_entities`"""
+
 delete = RelationalTag.delete
 """Alias for `RelationalTag.delete`"""
 
@@ -833,12 +1017,14 @@ __all__ = [
     'RelationalTag',
     'RelationalTagConnection',
     'RelationalTagError',
+    'RelationalEntity',
     
     'all_tags',
     
     'config',
     'new',
     'get',
+    'get_tagged_entities',
     'delete',
     'clear',
     'load',

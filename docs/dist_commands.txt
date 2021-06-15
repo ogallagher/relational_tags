@@ -7,3 +7,5 @@ python -m build -o ../../dist/python
 # upload to test.pypi
 python -m twine upload --repository testpypi ../../dist/python/*
 
+# build pdocs
+python -m pdoc --html --force -o ../../docs/pdocs relational_tags

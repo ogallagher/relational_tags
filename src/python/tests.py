@@ -3,14 +3,20 @@
 
 # imports
 
-from typing import Tuple, List, Any, Dict
+from typing import Tuple, List, Any, Dict, Union
 import sys
 import logging
 from getopt import getopt, GetoptError
 import random
+import json
 
 from util import STR_TO_LOG_LEVEL
-from relational_tags import RelationalTag, RelationalTagConnection, RelationalTagError
+from relational_tags import (
+    RelationalTag, 
+    RelationalTagConnection, 
+    RelationalTagError, 
+    RelationalEntity
+)
 import relational_tags as rtags
 
 # types
@@ -22,9 +28,51 @@ class TestEntity:
     # end __init__
 # end TestEntity
 
+class FalseRelEntity(RelationalEntity):
+    def __init__(self,name:str):
+        super().__init__()
+        
+        self.name = name
+    # end __init__
+    
+    def __hash__(self):
+        return hash(self.name)
+    # end __hash__
+    
+    def __str__(self) -> str:
+        return json.dumps({
+            # class name missing
+            'name': self.name
+        })
+    # end __str__
+    
+    @classmethod
+    def load_entity(cls, entity_json:Union[str,Dict]) -> 'FalseRelEntity':
+        if isinstance(entity_json,str):
+            entity_json = json.loads(entity_json)
+        
+        return FalseRelEntity(
+            name=entity_json['name']
+        )
+    # end load_entity
+# end FalseRelEntity
+
+class TestRelEntity(FalseRelEntity):
+    def __init__(self,name:str):
+        super().__init__(name)
+    # end __init__
+    
+    def __str__(self) -> str:
+        return json.dumps({
+            'class': type(self).__name__,
+            'name': self.name
+        })
+    # end __str__
+# end TestRelEntity
+
 # module vars
 
-VERSION:str = '0.0.5'
+VERSION:str = '0.0.6'
 
 log:logging.Logger
 
@@ -257,8 +305,66 @@ def module_funcs(hier_tag_names:Dict[str,List[str]], entities:List[Any]) -> Tupl
     return (name,passes,fails)
 # end module_funcs
 
+def rents(tag_names:List[str]) -> Tuple[str,int,int]:
+    name = 'rents'
+    passes = 0
+    fails = 0
+    
+    log.info('test loading and saving relational entities')
+    
+    # reset
+    rtags.clear()
+    
+    frent = FalseRelEntity('frent-1')
+    trent = TestRelEntity('trent-1')
+    
+    log.debug(RelationalEntity.classes)
+    
+    tags = rtags.load(tag_names)
+    log.debug('loaded {} tags: {}'.format(len(tags), set(tag_names)))
+    
+    try:
+        for i in range(len(tags) // 2):
+            random.choice(tags).connect_to(frent)
+            random.choice(tags).connect_to(trent)
+        # end for i in len(tags) // 2
+        
+    except NotImplementedError:
+        log.error('error tagging rel entities')
+        raise
+    
+    log.debug('save rel tag system w rel entities')
+    rents_orig = rtags.get_tagged_entities()
+    log.debug('original tagged entities:\n{}\n'.format('\n'.join(
+        [str(rent_orig) for rent_orig,rent_conns_orig in rents_orig]
+    )))
+    
+    rtags_json = rtags.save_json()
+    rtags.clear()
+    
+    log.debug('load rel tag system w rel entities')
+    rtags.load_json(rtags_json)
+    rents_load = rtags.get_tagged_entities()
+    log.debug('loaded tagged entities:\n{}\n'.format('\n'.join(
+        [str(rent_load) for rent_load,rent_conns_load in rents_load]
+    )))
+    
+    if len(rents_load) == len(rents_orig) - 1:
+        passes += 1
+    else:
+        fails += 1
+        log.error('failed to load ({o}-1)/{o} valid rel entities'.format(
+            o=len(rents_orig)
+        ))
+    
+    return (name,passes,fails)
+# end load_save_ents
+
 def main():
-    log.info('start relational tags python tests')
+    log.info('start relational tags python tests v{} for v{}'.format(
+        VERSION,
+        rtags.VERSION
+    ))
     
     test_selection:List['str'] = ['all']
     
@@ -341,6 +447,13 @@ def main():
     
     if 'module-funcs' in test_selection or 'all' in test_selection:
         name,passes,fails = module_funcs(hier_tag_names, entities)
+        if fails == 0:
+            log.info('{}: all {} tests passed'.format(name,passes))
+        else:
+            log.error('{}: {} passed, {} failed'.format(name,passes,fails))
+    
+    if 'rents' in test_selection or 'all' in test_selection:
+        name,passes,fails = rents(flat_tag_names)
         if fails == 0:
             log.info('{}: all {} tests passed'.format(name,passes))
         else:
