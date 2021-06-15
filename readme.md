@@ -4,6 +4,14 @@ See [original dev.to post](https://dev.to/owengall/relational-tags-29n9) for ini
 
 This repository contains implementations of relational tags organization in various languages.
 
+# Installation
+
+Available on [test.pypi.org](https://test.pypi.org/project/relational-tags-owengall/) as an installable package.
+
+```
+pip install -i https://test.pypi.org/simpl relational-tags-owengall
+```
+
 # Why not?
 
 Let's combine the best of two disparate organizational systems: tree hierarchy, and tags.
