@@ -9,7 +9,7 @@ This repository contains implementations of relational tags organization in vari
 Available on [test.pypi.org](https://test.pypi.org/project/relational-tags-owengall/) as an installable package.
 
 ```
-pip install -i https://test.pypi.org/simpl relational-tags-owengall
+pip install -i https://test.pypi.org/simple relational-tags-owengall
 ```
 
 # Why not?
