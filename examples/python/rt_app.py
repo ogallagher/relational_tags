@@ -9,19 +9,9 @@ import json
 import os
 import threading
 
-try:
-    from appJar import Gui
-    
-except ModuleNotFoundError as e:
-    print(e)
-    print('cannot run gui; skipping')
-
 import relational_tags as rt
 
 # module vars
-
-GUI_WIDTH:int = 800
-GUI_HEIGHT:int = 600
 
 RTAGS_DIR:str = './data'
 RTAGS_FILE:str = '{}/rtags.json'.format(RTAGS_DIR)
@@ -35,6 +25,11 @@ else:
 # methods
 
 def launch_gui() -> 'Gui':
+    """Launch GUI (not implemented)
+    
+    This is a relic of when appjar was attempted to be used as a gui library.
+    """
+    
     log.debug('launching gui')
     gui = Gui('Relational Tags Test App', '{}x{}'.format(GUI_WIDTH,GUI_HEIGHT))
     

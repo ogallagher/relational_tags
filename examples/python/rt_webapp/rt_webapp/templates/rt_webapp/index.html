@@ -1,0 +1,134 @@
+<!doctype html>
+<head>
+	<!-- metadata -->
+	
+    <meta charset="utf-8"/>
+    <!--scales viewport depending on worldspace device width-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	
+    <meta name="description" content="Relational tags webapp index page."/>
+    <meta name="author" content="Owen Gallagher <github.com/ogallagher>"/>
+	<meta name="page-name" content="index.html"/>
+	
+	<title>Relational Tags Python Example Webapp</title>
+	
+	<!-- django tags and filters -->
+	{% load filters %}
+	{% load static %}
+	
+	<!-- bootstrap -->
+	
+	<link 
+		href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" 
+		rel="stylesheet" 
+		integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" 
+		crossorigin="anonymous">
+	
+	<!-- jquery -->
+	<script 
+		src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.slim.min.js" 
+		type="text/javascript"
+		integrity="sha512-6ORWJX/LrnSjBzwefdNUyLCMTIsGoNP6NftMy2UAm1JBm6PRZCO1d7OHBStWpVFZLO+RerTvqX/Z9mBFfCJZ4A==" 
+		crossorigin="anonymous" 
+		referrerpolicy="no-referrer"></script>
+	
+	<!-- paperjs -->
+	<script 
+		src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.15/paper-core.min.js" 
+		type="text/javascript"
+		integrity="sha512-n8kxMM6jgawwNHl1HJmOXz+l8bMYaq0SrYrbCijlUnUUNXuD4ajzKmdXSTFarH3PViz54jfiSNUUAfTOhIDmRg==" 
+		crossorigin="anonymous" 
+		referrerpolicy="no-referrer"
+		async></script>
+	
+	<!-- visualizer -->
+	<script type="text/javascript" src="{% static 'rt_webapp/tag_node.js' %}"></script>
+	<script type="text/javascript" src="{% static 'rt_webapp/connection_line.js' %}"></script>
+	<script type="text/javascript" src="{% static 'rt_webapp/visualizer.js' %}"></script>
+	
+	<script type="text/javascript">
+		// expose tags to index.js (convert to javascript dictionary)
+		let index_context = {
+			tags_object: {{tags_json|safe}}
+		}
+	</script>
+	<script type="text/javascript" src="{% static 'rt_webapp/index.js' %}"></script>
+</head>
+<body>
+	<article class="container">
+		<section class="my-4">
+			<h2>All Tags</h2>
+			{% if tags %}
+				<ul>
+					{% for tag in tags %}
+						<li>
+							<span>{{tag.name}}</span>
+							<ul>
+								{% for target,connection in tag.connections.items %}
+									<li><span>{{connection.type|rt_conn_type_to_str}}</span> &rarr; <span>{{connection.target.name}}</span></li>
+								{% endfor %}
+							</ul>
+						</li>
+					{% endfor %}
+				</ul>
+			{% else %}
+				<p>No tags found.</p>
+			{% endif %}
+		</section>
+		
+		<section class="my-4">
+			<h2>Create or Update a Tag</h2>
+			<form  method="post" action="{% url 'rt_webapp:new_tag' %}">
+				<!-- cross site request forgery protection token -->
+				{% csrf_token %}
+		
+				<fieldset>
+					<datalist id="tag-name-options">
+						{% for tag in tags %}
+							<option value="{{tag.name}}"></option>
+						{% endfor %}
+					</datalist>
+			
+					<div class="row mb-2">
+						<label class="form-label col-auto" for="tag-name">tag name</label>
+						<div class="col">
+							<input class="form-control" type="text" id="tag-name" list="tag-name-options" placeholder="new-tag" name="tag_name"/>
+						</div>
+					</div>
+			
+					<div class="row mb-2">
+						<label class="form-label col-auto" for="tag-target">relates to</label>
+						<div class="col">
+							<input class="form-control" type="text" id="tag-target" list="tag-name-options" placeholder="tag-target" name="tag_target"/>
+						</div>
+				
+						<label class="form-label col-auto" for="tag-connection">as</label>
+						<div class="col">
+							<select class="form-select" id="tag-connection" name="tag_connection">
+								{% for key,value in connections.items %}
+									<option value="{{key}}">{{value}}</option>
+								{% endfor %}
+							</select>
+						</div>
+					</div>
+				</fieldset>
+		
+				<input type="submit" class="form-control btn-primary mb-2" value="submit"/>
+			</form>
+		</section>
+		
+		<section class="my-4">
+			<h2>Relational Tags Visualizer</h2>
+			<canvas id="visualizer-canvas" class="w-100 bg-dark"></canvas>
+		</section>
+	</article>
+	
+	<footer class="container-fluid bg-dark text-light py-4">
+		<div class="row justify-content-end">
+			<div class="col-auto">CC BY-SA</div>
+			<div class="col-auto">
+				<a href="https://github.com/ogallagher" class="text-light">Owen Gallagher</a>
+			</div>
+		</div>
+	</footer>
+</body>
