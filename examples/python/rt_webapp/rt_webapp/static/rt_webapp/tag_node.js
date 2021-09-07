@@ -13,6 +13,8 @@ function TagNode(visualizer, tag_name) {
     this.v = visualizer
     this.name = tag_name
     
+    this.frozen = false
+    
     this.graphic = undefined
     this.graphic_circle = undefined
     this.color = new paper.Color(
@@ -21,6 +23,8 @@ function TagNode(visualizer, tag_name) {
         Math.max(0.25,Math.random())
     )
     this.create_graphic()
+    
+    this.handle_gui_events()
     
     this.acceleration = new paper.Point(0,0)
     this.velocity = new paper.Point(0,0)
@@ -60,6 +64,26 @@ TagNode.prototype.create_graphic = function() {
             Math.random()*(this.v.view_dims.height-TagNode.radius*2) + TagNode.radius
         ]
     })
+}
+
+TagNode.prototype.handle_gui_events = function() {
+    let paper = this.v.paper
+    let self = this
+    
+    // disable movement on mouse down
+    this.graphic.onMouseDown = function(event) {
+        self.frozen = true
+    }
+    
+    // enable movement on mouse up
+    this.graphic.onMouseUp = function(event) {
+        self.frozen = false
+    }
+    
+    // handle mouse drag to reposition
+    this.graphic.onMouseDrag = function(event) {
+        self.graphic.position = self.graphic.position.add(event.delta)
+    }
 }
 
 TagNode.prototype.attract_bidirect = function(other, gravity) {
@@ -103,7 +127,10 @@ TagNode.prototype.collide = function(other) {
 }
 
 TagNode.prototype.move = function() {
-    this.velocity = this.velocity.add(this.acceleration).multiply(TagNode.friction)
-    this.graphic.position.set(this.graphic.position.add(this.velocity))
+    if (!this.frozen) {
+        this.velocity = this.velocity.add(this.acceleration).multiply(TagNode.friction)
+        this.graphic.position.set(this.graphic.position.add(this.velocity))
+    }
+    
     this.acceleration.set(0,0)
 }

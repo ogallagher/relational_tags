@@ -1,6 +1,9 @@
 # python
 **/__pycache__
 
+# videos
+docs/*.mp4
+
 # dist
 dist
 
