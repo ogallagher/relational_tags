@@ -12,6 +12,12 @@ Available on [test.pypi.org](https://test.pypi.org/project/relational-tags-oweng
 pip install -i https://test.pypi.org/simple relational-tags-owengall
 ```
 
+# Showcase
+
+*A screen recording of `examples/python/rt_webapp`*
+
+![examples/python/rt_webapp](https://user-images.githubusercontent.com/17031438/132413493-dd1464ed-8115-465e-bdf1-847d72a83f96.mp4)
+
 # Why not?
 
 Let's combine the best of two disparate organizational systems: tree hierarchy, and tags.
