@@ -131,7 +131,7 @@ class RelationalTag {
  * Package version.
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.1'
+RelationalTag.VERSION = '0.1.2'
 
 // RelationalTag static variables
 
@@ -169,6 +169,16 @@ RelationalTag._tagged_entities = {}
  */
 RelationalTag.config = function(is_case_sensitive) {
 	RelationalTag._is_case_sensitive = is_case_sensitive
+}
+
+/**
+ * Whether tag names are case sensitive.
+ * @memberOf RelationalTag
+ * 
+ * @return {Boolean}
+ */
+RelationalTag.is_case_sensitive = function() {
+	return RelationalTag._is_case_sensitive
 }
 
 /**
@@ -250,15 +260,15 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 	else {
 		// remove connection from source
 		let tag = tag_or_connection
-		tag.connections[target] = undefined
+		delete tag.connections[target]
 		
 		// remove inverse connection from target
 		if (target instanceof RelationalTag) {
-			target.connections[tag] = undefined
+			delete target.connections[tag]
 		}
 		else {
 			if (target in RelationalTag._tagged_entities) {
-				RelationalTag._tagged_entities[target][tag] = undefined
+				delete RelationalTag._tagged_entities[target][tag]
 			}
 			else {
 				log.warning(`entity ${target} already untagged`)
@@ -354,12 +364,12 @@ RelationalTag.delete = function(tag) {
 		}
 		else {
 			// remove from all_tags
-			RelationalTag.all_tags[name] = undefined
+			delete RelationalTag.all_tags[name]
 		}
 	}
 	else {
 		// remove from all_tags
-		RelationalTag.all_tags[tag.name] = undefined
+		delete RelationalTag.all_tags[tag.name]
 	}
 	
 	// remove all connections
