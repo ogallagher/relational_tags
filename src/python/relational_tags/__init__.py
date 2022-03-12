@@ -13,7 +13,7 @@ import json
 
 # module vars
 
-VERSION:str = '0.0.6'
+VERSION:str = '0.0.7'
 """Package version.
 """
 
@@ -559,7 +559,7 @@ class RelationalTag:
             
             else:
                 try:
-                    target_entity_json:Dict = conn_arr[2]
+                    target_entity_json:Dict = json.loads(conn_arr[2])
                     target_entity_cls:Type = RelationalEntity.classes[
                         target_entity_json[RelationalEntity._ATTR_CLASS]
                     ]
@@ -902,13 +902,13 @@ class RelationalTagConnection:
             # don't use __str__, as it would case recursion
             source_str = '"{}"'.format(self.source.name)
         else:
-            source_str = str(self.source)
+            source_str = '"{}"'.format(str(self.source).replace('"', '\\"'))
         
         if isinstance(self.target,RelationalTag):
             # don't use __str__, as it would case recursion
             target_str = '"{}"'.format(self.target.name)
         else:
-            target_str = str(self.target)
+            target_str = '"{}"'.format(str(self.target).replace('"', '\\"'))
         
         return '[{},"{}",{}]'.format(source_str,cls.type_to_str(self.type),target_str)
     # end __str__

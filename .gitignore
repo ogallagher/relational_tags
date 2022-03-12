@@ -1,6 +1,9 @@
 # python
 **/__pycache__
 
+# javascript
+**/node_modules/
+
 # videos
 docs/*.mp4
 

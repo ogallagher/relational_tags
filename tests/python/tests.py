@@ -93,13 +93,20 @@ def flat_tags(tag_names:List[str], entities:List[Any]) -> Tuple[str,int,int]:
     name = 'flat-tags'
     passes = 0
     fails = 0
-    len_tag_names = len(tag_names)
+    len_tag_names = len(set(tag_names))
     
     rtags:List[RelationalTag] = []
     
     # create new tags using constructors
     for tag_name in tag_names:
-        rtag = RelationalTag(name=tag_name)
+        try:
+            rtag = RelationalTag(name=tag_name)
+        except RelationalTagError as e:
+            if e.type == RelationalTagError.TYPE_COLLISION:
+                log.warning(e)
+            else:
+                raise e
+    # end for tag in names
     
     added = len(RelationalTag.all_tags)
     if added == len_tag_names:
