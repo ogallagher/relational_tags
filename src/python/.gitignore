@@ -1,9 +1,0 @@
-env
-*.egg-info
-pyproject.toml
-setup.cfg
-__pycache__
-
-build
-
-readme.md

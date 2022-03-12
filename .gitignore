@@ -1,5 +1,16 @@
 # python
-**/__pycache__
+**/__pycache__/
+src/python/env/
+src/python/*.egg-info
+src/python/pyproject.toml
+src/python/setup.cfg
+src/python/build/
+
+# python examples
+examples/python/data/
+examples/python/env/
+# django database migrations
+examples/python/rt_webapp/**/migrations/
 
 # javascript
 **/node_modules/
@@ -8,11 +19,10 @@
 docs/*.mp4
 
 # dist
-dist
+dist/
+
+# sqlite
+**/*.sqlite3
 
 # secrets
-secret
-
-# testing
-test
-
+secret/

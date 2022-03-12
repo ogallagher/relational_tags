@@ -1,10 +1,10 @@
 {
   "name": "relational_tags",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Relational tagging library.",
   "main": "relational_tags.js",
   "scripts": {
-    "test": "mocha ../../../tests/javascript"
+    "test": "mocha tests.js"
   },
   "repository": {
     "type": "git",
