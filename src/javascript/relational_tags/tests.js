@@ -33,6 +33,24 @@ describe('relational_tags', function() {
 		})
 		console.log('debug configured logging')
 		
+		// define Array equality
+		Array.prototype.array_equals = function(other) {
+			if (other instanceof Array && this.length == other.length) {
+				for (let i=0; i < this.length; i++) {
+					if (this[i] !== other[i]) {
+						console.log(`warning ${this[i]} != ${other[i]}`)
+						return false
+					}
+				}
+				
+				return true
+			}
+			else {
+				console.log(`warning ${this.length} != ${other instanceof Array ? other.length : typeof other}`)
+				return false
+			}
+		}
+		
 		temp_logger.imports_promise.then(done)
 	})
 	
@@ -302,6 +320,45 @@ describe('relational_tags', function() {
 			it('disconnects from entities', function() {
 			
 			})
+		})
+	})
+	
+	describe('graph traversal', function() {
+		let apple = 'apple'
+		let rock = 'rock'
+		
+		before(function() {
+			console.log('debug reset tags')
+			rt.clear()
+			
+			rt.load({
+				'fruit': [],
+				'organic': ['fruit']
+			})
+			
+			rt.connect(rt.get('fruit'), apple)
+		})
+		
+		it('calculates graph paths and distances', function() {
+			let organic = rt.get('organic')
+			let fruit = rt.get('fruit')
+			
+			let rock_rock = rt.graph_path(rock)
+			let organic_organic = rt.graph_path(organic)
+			let organic_fruit = rt.graph_path(organic, fruit)
+			let organic_apple = rt.graph_path(organic, apple)
+			let apple_organic = rt.graph_path(apple, organic)
+			
+			assert.ok(rock_rock.array_equals([]))
+			assert.ok(organic_organic.array_equals([organic]))
+			assert.ok(organic_fruit.array_equals([organic, fruit]))
+			assert.ok(organic_apple.array_equals([organic, fruit, apple]))
+			assert.ok(apple_organic.array_equals(organic_apple.reverse()))
+			
+			assert.equal(rt.graph_distance(rock), -1)
+			assert.equal(rt.graph_distance(organic), 0)
+			assert.equal(rt.graph_distance(apple), 0)
+			assert.equal(rt.graph_distance(organic, fruit), 1)
 		})
 	})
 	

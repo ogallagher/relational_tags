@@ -145,6 +145,20 @@ class RelationalTag {
 		
 		return `{"${this.name}": [${connections_str.join(',')}]}`
 	}
+	
+	/**
+	 * Whether this tag has the same name as another. It is sometimes desirable to compare using the == or ===
+	 * operator instead, as those require that both tags reference the same object in memory.
+	 * 
+	 * @returns {Boolean}
+	 */
+	equals(other) {
+		return (
+			(other instanceof RelationalTag) && 
+			other.name == this.name ||
+			(!RelationalTag._is_case_sensitive && other.name.toLowerCase() == this.name.toLowerCase())
+		)
+	}
 }
 
 /**
@@ -549,6 +563,8 @@ RelationalTag.known = function(node) {
  * Find the shortest path between two nodes in the relational tags graph. Connections are analagous to edges
  * and tags and entities are analagous to nodes. Edge direction (connection type) is not considered.
  * 
+ * Implemented using breadth first search, starting from a.
+ * 
  * @memberOf RelationalTag
  * 
  * @param {(RelationalTag|Object)} a
@@ -558,13 +574,72 @@ RelationalTag.known = function(node) {
  */
 RelationalTag.graph_path = function(a, b) {
 	if (a == b || b === undefined) {
-		return [a]
+		if (RelationalTag.known(a)) {
+			return [a]
+		}
+		else {
+			return []
+		}
 	}
-	else if (RelationalTag.known(a) && RelationalTag.known(b)) {
-		throw new NotImplementedError('RelationalTag.graph_path not yet implemented')
+	else if (RelationalTag.known(a) && RelationalTag.known(b)) {		
+		let path = RelationalTag._graph_path(a, b, new Set())
+		return path === undefined ? [] : path
 	}
 	else {
 		return []
+	}
+}
+
+/**
+ * Helper function for {@link RelationalTag.graph_path}. 
+ * Assumes both `a` and `b` are in the graph.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {(RelationalTag|Object)} a
+ * @param {(RelationalTag|Object)} b
+ * @param {Set} visits
+ * 
+ * @returns {Array}
+ */
+RelationalTag._graph_path = function(a, b, visits) {
+	// add current node to visits
+	visits.add(a)
+	
+	let connections = a instanceof RelationalTag
+		? a.connections.keys()
+		: RelationalTag._tagged_entities.get(a).keys()
+	
+	// search outward connections
+	let nexts = new Array()
+	for (let node of connections) {
+		if (node == b) {
+			// return path
+			return [a, node]
+		}
+		else if (!visits.has(node)) {
+			nexts.push(node)
+		}
+		// else, skip visited node
+	}
+	
+	if (nexts.length == 0) {
+		// no path found, no more unexplored nodes
+		return undefined
+	}
+	else {
+		// search next level
+		for (let next of nexts) {
+			let path = RelationalTag._graph_path(next, b, visits)
+			
+			if (path !== undefined) {
+				// return path
+				return [a].concat(path)
+			}
+		}
+		
+		// no path found in further levels
+		return undefined
 	}
 }
 
@@ -589,12 +664,7 @@ RelationalTag.graph_path = function(a, b) {
  * @returns {Number}
  */
 RelationalTag.graph_distance = function(a, b) {
-	if (b === undefined) {
-		return 0
-	}
-	else {
-		return RelationalTag.graph_path(a, b).length - 1
-	}
+	return RelationalTag.graph_path(a, b).length - 1
 }
 
 /**
