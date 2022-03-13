@@ -21,6 +21,10 @@ docs/*.mp4
 # dist
 dist/
 
+# generated docs
+docs/jsdocs/
+docs/pdocs/
+
 # sqlite
 **/*.sqlite3
 

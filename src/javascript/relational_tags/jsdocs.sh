@@ -8,6 +8,9 @@ pkg_version=$(sed -e 's/^"//' -e 's/"$//' <<< $(npm pkg get version))
   --readme ../../../readme.md \
   --destination $out_dir \
   --package ./package.json \
+  --configure ./jsdoc_config.json \
   .
 
 echo "generated docs at $out_dir/relational_tags/$pkg_version/index.html"
+
+open "$out_dir/relational_tags/$pkg_version/index.html"

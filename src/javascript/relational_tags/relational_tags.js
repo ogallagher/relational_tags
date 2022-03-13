@@ -1,8 +1,10 @@
 /**
- * Relational tagging library.
+ * @fileOverview Relational tagging library.
  * 
  * @author Owen Gallagher
  */
+
+const { NotImplementedError } = require('standard-errors')
 
 /**
  * Handle optional imports.
@@ -58,7 +60,7 @@ class RelationalTag {
 	 * 
 	 * @param {String} name The name/label/value of this tag.
 	 * 
-	 * @throws {RelationalTagException} This tag already exists. Use {@link RelationalTag#new} for 
+	 * @throws {RelationalTagException} This tag already exists. Use {@link RelationalTag.new} for 
 	 * get-if-exists behavior.
 	 */
 	constructor(name) {
@@ -76,7 +78,7 @@ class RelationalTag {
    			 */
 			this.name = RelationalTag._is_case_sensitive ? name : name.toLowerCase()
 		
-			if (this.name in RelationalTag.all_tags) {
+			if (RelationalTag.all_tags.has(this.name)) {
 				throw new RelationalTagException(
 					`tag ${this.name} already exists`, 
 					RelationalTagException.TYPE_COLLISION
@@ -84,14 +86,14 @@ class RelationalTag {
 			}
 			else {
 				// register tag
-				RelationalTag.all_tags[this.name] = this
+				RelationalTag.all_tags.set(this.name, this)
 			
 				/**
 				 * Relational tag connections. This is how we keep track of tag--[entity,tag] relationships.
 				 * 
-				 * @type {Object}
+				 * @type {Map}
 				 */
-				this.connections = {}
+				this.connections = new Map()
 			
 				console.log(`info created new tag ${this.name}`)
 			}
@@ -99,70 +101,93 @@ class RelationalTag {
 	}
 	
 	/**
-	 * Convenience wrapper for {@link RelationalTag#connect}.
+	 * Convenience wrapper for {@link RelationalTag.connect}.
 	 * 
-	 * @param {RelationalTag|Object} other
+	 * @param {(RelationalTag|Object)} other
 	 * @param {String} connection_type
 	 * 
-	 * @return {RelationalTagConnection}
+	 * @returns {RelationalTagConnection}
 	 */ 
 	connect_to(other, connection_type) {
 		return RelationalTag.connect(this, other, connection_type)
 	}
 	
 	/**
-	 * Convenience wrapper for {@link RelationalTag#disconnect}.
+	 * Convenience wrapper for {@link RelationalTag.disconnect}.
 	 * 
-	 * @param {RelationalTag|Object} other
+	 * @param {(RelationalTag|Object)} other
 	 */
 	disconnect_to(other) {
 		RelationalTag.disconnect(this, other)
 	}
 	
 	/**
-	 * Convenience wrapper for {@link RelationalTag#delete}.
+	 * Convenience wrapper for {@link RelationalTag.delete}.
 	 */ 
 	delete_self() {
 		RelationalTag.delete(this)
+	}
+	
+	/**
+	 * Returns this tag represented as json.
+	 * 
+	 * I cannot use {JSON.stringify} for this because this object has recursive references.
+	 * 
+	 * @returns {String}
+	 */
+	toString() {
+		let connections = Object.values(this.connections)
+		let connections_str = new Array(connections.length)
+		
+		for (let c=0; c < connections.length; c++) {
+			connections_str[c] = connections[c].toString()
+		}
+		
+		return `{"${this.name}": [${connections_str.join(',')}]}`
 	}
 }
 
 /**
  * Package version.
+ * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.2'
+RelationalTag.VERSION = '0.1.3'
 
 // RelationalTag static variables
 
 /**
  * Whether tag names are case sensitive.
+ * 
  * @memberOf RelationalTag
  */ 
 RelationalTag._is_case_sensitive = false
 
 /**
  * All relational tags.
- * @memberOf RelationalTag
  * 
- * Structure = { name : tag }.
+ * Structure = `{ name : tag }`.
+ * 
+ * @memberOf RelationalTag
  */ 
-RelationalTag.all_tags = {}
+RelationalTag.all_tags = new Map()
 
 /**
  * All tagged entities.
- * @memberOf RelationalTag
  * 
  * This enables association of any entity with tags, without modifying the target entity.
  * 
- * Structure = { entity : { tag : connection } }.
+ * Structure = `{ entity : { tag : connection } }`.
+ * 
+ * @memberOf RelationalTag
  */ 
-RelationalTag._tagged_entities = {}
+RelationalTag._tagged_entities = new Map()
 
 // RelationalTag static methods
 
 /**
  * Initial configuration.
+ * 
  * @memberOf RelationalTag
  * 
  * @param {Boolean} is_case_sensitive
@@ -173,9 +198,10 @@ RelationalTag.config = function(is_case_sensitive) {
 
 /**
  * Whether tag names are case sensitive.
+ * 
  * @memberOf RelationalTag
  * 
- * @return {Boolean}
+ * @returns {Boolean}
  */
 RelationalTag.is_case_sensitive = function() {
 	return RelationalTag._is_case_sensitive
@@ -183,17 +209,16 @@ RelationalTag.is_case_sensitive = function() {
 
 /**
  * Create a connection between a source and target with the given connection type.
+ * 
  * @memberOf RelationalTag
  * 
  * @param {RelationalTag|RelationalTagConnection} tag_or_connection The source tag, or a
  * connection instance.
- * 
  * @param {RelationalTag|Object} target The target tag or entity, or {undefined} if the first
  * arg is a connection.
- * 
  * @param {String} connection_type Connection type.
  * 
- * @return RelationalTagConnection
+ * @returns RelationalTagConnection
  */
 RelationalTag.connect = function(tag_or_connection, target, connection_type) {
 	const source_is_connection = (tag_or_connection instanceof RelationalTagConnection)
@@ -220,19 +245,19 @@ RelationalTag.connect = function(tag_or_connection, target, connection_type) {
 		
 		// connection
 		let conn = new RelationalTagConnection(tag, target, connection_type)
-		tag.connections[target] = conn
+		tag.connections.set(target, conn)
 		
 		// inverse connection
 		if (target_is_tag) {
-			target.connections[tag] = conn.inverse()
+			target.connections.set(tag, conn.inverse())
 		}
 		else {
-			if (!(target in RelationalTag._tagged_entities)) {
+			if (!RelationalTag._tagged_entities.has(target)) {
 				console.log(`info new tagged entity ${target}`)
-				RelationalTag._tagged_entities[target] = {}
+				RelationalTag._tagged_entities.set(target, new Map())
 			}
 			
-			RelationalTag._tagged_entities[target][tag] = conn.inverse()
+			RelationalTag._tagged_entities.get(target).set(tag, conn.inverse())
 		}
 		
 		return conn
@@ -241,12 +266,12 @@ RelationalTag.connect = function(tag_or_connection, target, connection_type) {
 
 /**
  * Remove a connection between a tag and a target.
+ * 
  * @memberOf RelationalTag
  * 
  * @param {RelationalTag|RelationalTagConnection} tag_or_connection Connection source,
- * or 
- * 
- * @param {RelationalTag|Object} target Connection target, or {undefined} if a
+ * or connection instance.
+ * @param {RelationalTag|Object} target Connection target, or `undefined` if a
  * connection is provided as the first arg.
  */
 RelationalTag.disconnect = function(tag_or_connection, target) {
@@ -260,15 +285,15 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 	else {
 		// remove connection from source
 		let tag = tag_or_connection
-		delete tag.connections[target]
+		tag.connections.delete(target)
 		
 		// remove inverse connection from target
 		if (target instanceof RelationalTag) {
-			delete target.connections[tag]
+			target.connections.delete(tag)
 		}
 		else {
-			if (target in RelationalTag._tagged_entities) {
-				delete RelationalTag._tagged_entities[target][tag]
+			if (RelationalTag._tagged_entities.has(target)) {
+				RelationalTag._tagged_entities.get(target).delete(tag)
 			}
 			else {
 				log.warning(`entity ${target} already untagged`)
@@ -279,14 +304,14 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 
 /**
  * Create a new relational tag.
+ * 
  * @memberOf RelationalTag
  * 
  * @param {String} name Unique tag name.
- * 
  * @param {Boolean} get_if_exists Whether to return an existing tag if one of the given name already
- * exists. Default is {true}.
+ * exists. Default is `true`.
  * 
- * @return {RelationalTag}
+ * @returns {RelationalTag}
  * @throws {RelationalTagException}
  */
 RelationalTag.new = function(name, get_if_exists) {
@@ -304,7 +329,7 @@ RelationalTag.new = function(name, get_if_exists) {
 		console.log(`warning ${err}`)
 		
 		if (err.type == RelationalTagException.TYPE_COLLISION && get_if_exists) {
-			return RelationalTag.all_tags[name]
+			return RelationalTag.all_tags.get(name)
 		}
 		else {
 			throw err
@@ -314,13 +339,13 @@ RelationalTag.new = function(name, get_if_exists) {
 
 /**
  * Get an existing relational tag.
+ * 
  * @memberOf RelationalTag
  * 
  * @param {String} name Unique tag name.
- * 
  * @param {Boolean} new_if_missing Whether to create a new tag if it doesn't exist yet.
  * 
- * @throws {RelationalTagException} The given tag doesn't exist and {new_if_missing == false}.
+ * @throws {RelationalTagException} The given tag doesn't exist and `new_if_missing == false`.
  */
 RelationalTag.get = function(name, new_if_missing) {
 	if (!RelationalTag._is_case_sensitive) {
@@ -329,7 +354,7 @@ RelationalTag.get = function(name, new_if_missing) {
 	
 	new_if_missing = new_if_missing === undefined ? true : new_if_missing
 	
-	let tag = RelationalTag.all_tags[name]
+	let tag = RelationalTag.all_tags.get(name)
 	
 	if (tag === undefined) {
 		if (new_if_missing) {
@@ -346,17 +371,18 @@ RelationalTag.get = function(name, new_if_missing) {
 
 /**
  * Delete an existing relational tag.
- * @memberOf RelationalTag
  * 
  * Note this method fails silently, and will do nothing if the given tag doesn't exist.
  * 
- * @param {String|RelationalTag} tag
+ * @memberOf RelationalTag
+ * 
+ * @param {(String|RelationalTag)} tag RelationalTag instance or tag name to delete.
  */
 RelationalTag.delete = function(tag) {
 	if (!(tag instanceof RelationalTag)) {
 		// convert to tag
 		const name = RelationalTag._is_case_sensitive ? tag : tag.toLowerCase()
-		tag = RelationalTag.all_tags[name]
+		tag = RelationalTag.all_tags.get(name)
 		
 		if (tag === undefined) {
 			log.warning(`skip delete of nonexistent tag ${name}`)
@@ -364,12 +390,12 @@ RelationalTag.delete = function(tag) {
 		}
 		else {
 			// remove from all_tags
-			delete RelationalTag.all_tags[name]
+			RelationalTag.all_tags.delete(name)
 		}
 	}
 	else {
 		// remove from all_tags
-		delete RelationalTag.all_tags[tag.name]
+		RelationalTag.all_tags.delete(tag.name)
 	}
 	
 	// remove all connections
@@ -380,21 +406,195 @@ RelationalTag.delete = function(tag) {
 
 /**
  * Remove all tags and connections.
+ * 
  * @memberOf RelationalTag
  * 
- * @return {Number} Number of tags removed.
+ * @returns {Number} Number of tags removed.
  */
 RelationalTag.clear = function() {
-	let num_tags = Object.keys(RelationalTag.all_tags).length
+	let num_tags = RelationalTag.all_tags.size
 	
-	RelationalTag.all_tags = {}
-	RelationalTag._tagged_entities = {}
-	
-	// apply reassign to module members
-	exports.all_tags = RelationalTag.all_tags
-	// exports._tagged_entities doesn't exist because it's private (_ prefix)
+	RelationalTag.all_tags.clear()
+	RelationalTag._tagged_entities.clear()
 	
 	return num_tags
+}
+
+/**
+ * Load in a set of tags, including optional connection info for each.
+ * 
+ * Tags can be duplicated; they will only be loaded once.
+ * 
+ * There are multiple ways to define a relational tags system:
+ * 
+ * ### From save
+ * 
+ * Pass a list of {@link RelationalTag} instances as the `tags` arg.
+ * 
+ * ### Flat
+ * 
+ * Pass a list of tag name strings. Tags will not have any relationships with each other.
+ * 
+ * ```
+ * rtags.load(['apple','banana','cinnamon','donut'])
+ * ```
+ * 
+ * ### Hierarchy
+ * 
+ * Pass an object, where each key is a tag name string, and each value is either a single
+ * tag name, or a list of tag names.
+ * 
+ * ```
+ * rtags.load({
+ * 	'fruit': ['apple','banana','orange'],
+ * 	'food': ['fruit','vegetable'],
+ * 	'color': ['red','blue','green','orange'],
+ * 	'sport': 'football'
+ * })
+ * ```
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {(Array|Object)} tags Relational tag names, either as an array or object. Entities not supported. If
+ * passed as an array, items can be name strings or {@link RelationalTag} instances.
+ * @param {String} tag_tag_type Specify what a key-value relationship in the object/dictionary means. Default
+ * of `RelationalTagConnection.TYPE_TO_TAG_CHILD` means the key is the parent of the value.
+ * 
+ * @returns {Array} List of generated relational tags.
+ * 
+ * @throws {RelationalTagException} `tags` is not a supported type/format.
+ */
+RelationalTag.load = function(tags, tag_tag_type) {
+	// define optionals
+	tag_tag_type = tag_tag_type === undefined ? RelationalTagConnection.TYPE_TO_TAG_CHILD : tag_tag_type
+	
+	if (tags instanceof Array) {
+		console.log(`info loading ${tags.length} relational tags from list`)
+		
+		for (let tag of tags) {
+			if (tag instanceof RelationalTag) {
+				if (tag.name in RelationalTag.all_names) {
+					console.log(`warning duplicate tag ${tag} on load`)
+				}
+				
+				RelationalTag.all_tags.set(tag.name, tag)
+			}
+			else if (typeof tag === 'string' || tag instanceof String) {
+				RelationalTag.new(tag, true)
+			}
+			else {
+				throw new RelationalTagException(
+					`unsupported tag type ${typeof tag}`,
+					RelationalTagException.TYPE_WRONG_TYPE
+				)
+			}
+		}
+	}
+	else if (typeof tags === 'object') {
+		let tag_names = Object.keys(tags)
+		console.log(`info loading ${tag_names.length} relational tags from object`)
+		
+		for (let tag_name of tag_names) {
+			// create new key tag
+			let ktag = RelationalTag.new(tag_name, true)
+			
+			let value = tags[tag_name]
+			
+			if (value instanceof Array) {
+				// create multiple value tags
+				for (let v of value) {
+					let vtag = RelationalTag.get(v, true)
+					let conn = RelationalTag.connect(ktag, vtag, tag_tag_type)
+				}
+			}
+			else if (typeof value === 'string' || value instanceof String) {
+				// create single value tag
+				let vtag = RelationalTag.get(value, true)
+				RelationalTag.connect(ktag, vtag, tag_tag_type)
+			}
+			else {
+				throw new RelationalTagException(
+					`unsupported target type ${typeof value}`,
+					RelationalTagException.TYPE_WRONG_TYPE
+				)
+			}
+		}
+	}
+	else {
+		console.log(`error failed to parse tags from:\n${JSON.stringify(tags, undefined, 2)}`)
+		
+		throw new RelationalTagException(
+			`unsupported tags type/format ${typeof tags}`,
+			RelationalTagException.TYPE_WRONG_TYPE
+		)
+	}
+	
+	return Object.values(RelationalTag.all_tags)
+}
+
+/**
+ * Whether the given tag or entity is present in the relational tags system/graph.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @returns {Boolean}
+ */
+RelationalTag.known = function(node) {
+	return node instanceof RelationalTag
+		? RelationalTag.all_tags.has(node.name)
+		: RelationalTag._tagged_entities.has(node)
+}
+
+/**
+ * Find the shortest path between two nodes in the relational tags graph. Connections are analagous to edges
+ * and tags and entities are analagous to nodes. Edge direction (connection type) is not considered.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {(RelationalTag|Object)} a
+ * @param {(RelationalTag|Object)} b
+ * 
+ * @returns {Array} Array of nodes (tags and entities) along the discovered path, in order from a to b.
+ */
+RelationalTag.graph_path = function(a, b) {
+	if (a == b || b === undefined) {
+		return [a]
+	}
+	else if (RelationalTag.known(a) && RelationalTag.known(b)) {
+		throw new NotImplementedError('RelationalTag.graph_path not yet implemented')
+	}
+	else {
+		return []
+	}
+}
+
+/**
+ * Find the shortest distance between two nodes in the relational tags graph. Calls 
+ * {@link RelationalTag.graph_path} and then calculates the graph distance of that path to be
+ * the number of edges:
+ * 
+ * ```
+ * num_edges = graph_distance().length - 1
+ * ```
+ * 
+ * - `distance == -1` means the nodes are not connected.
+ * - `distance == 0` means `a` and `b` are the same node.
+ * - `distance > 0` means the nodes are connected.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {(RelationalTag|Object)} a
+ * @param {(RelationalTag|Object)} b
+ * 
+ * @returns {Number}
+ */
+RelationalTag.graph_distance = function(a, b) {
+	if (b === undefined) {
+		return 0
+	}
+	else {
+		return RelationalTag.graph_path(a, b).length - 1
+	}
 }
 
 /**
@@ -417,7 +617,7 @@ class RelationalTagException {
 	/**
 	 * Format exception as readable string.
 	 * 
-	 * @return {String}
+	 * @returns {String}
 	 */
 	toString() {
 		return `${this.name}.${this.type}: ${this.message}`
@@ -428,9 +628,10 @@ class RelationalTagException {
 
 /**
  * Relational tag exception types, which are converted into static constants.
- * @memberOf RelationalTagException
  * 
- * Ex. 'GENERIC' &rarr; RelationalTagException.TYPE_GENERIC = 'GENERIC'.
+ * Ex. `'GENERIC'` &rarr; `RelationalTagException.TYPE_GENERIC = 'GENERIC'`.
+ * 
+ * @memberOf RelationalTagException
  */
 RelationalTagException.TYPES = [
 	'GENERIC',
@@ -498,12 +699,36 @@ class RelationalTagConnection {
 	}
 	
 	/**
-	 * Format properties of the connection into a readable one line string.
+	 * Format properties of the connection into a readable one line string. Double quoted for JSON
+	 * compatibility.
 	 * 
-	 * @returns String
+	 * @returns {String}
 	 */ 
 	toString() {
-		return `${this.source}=${this.type}=${this.target}`
+		let source = this.source instanceof RelationalTag
+			// dont use RT.toString() as it causes recursion
+			? this.source.name
+			: this.source
+		
+		let target = this.target instanceof RelationalTag
+			? this.target.name
+			: this.target
+		
+		return `"${source}=${this.type}=${target}"`
+	}
+	
+	/**
+	 * Whether the given argument is an equivalent connection (same source, target, and type).
+	 * 
+	 * @returns {Boolean}
+	 */
+	equals(other) {
+		return (
+			other instanceof RelationalTagConnection &&
+			other.source == this.source &&
+			other.target == this.target &&
+			other.type == this.type
+		)
 	}
 }
 
@@ -511,9 +736,10 @@ class RelationalTagConnection {
 
 /**
  * Relational tag connection types, which are converted into static constants.
- * @memberOf RelationalTagConnection
  * 
- * Ex. 'TO_TAG_UNDIRECTED' &rarr; RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED = 'TO_TAG_UNDIRECTED'.
+ * Ex. `'TO_TAG_UNDIRECTED'` &rarr; `RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED = 'TO_TAG_UNDIRECTED'`.
+ * 
+ * @memberOf RelationalTagConnection
  */
 RelationalTagConnection.TYPES = [
     'TO_TAG_UNDIRECTED',
@@ -525,11 +751,13 @@ RelationalTagConnection.TYPES = [
 
 /**
  * Connection types between tags.
+ * 
  * @memberOf RelationalTagConnection
  */
 RelationalTagConnection._TAG_TAG_TYPES = []
 /**
  * Connection types between a tag and an entity.
+ * 
  * @memberOf RelationalTagConnection
  */
 RelationalTagConnection._TAG_ENT_TYPES = []
@@ -553,11 +781,12 @@ console.log(`debug RelationalTagConnection.TYPES = ${JSON.stringify(RelationalTa
 
 /**
  * Return the inverse of the given connection type.
+ * 
  * @memberOf RelationalTagConnection
  * 
  * @param {String} type
  * 
- * @return {String}
+ * @returns {String}
  */ 
 RelationalTagConnection.inverse_type = function(type) {
 	switch (type) {

@@ -1,5 +1,5 @@
 /**
- * Relational tags javascript implementation tests.
+ * @fileOverview Relational tags javascript implementation tests.
  * 
  * TODO temp_js_logger should be optional
  * 
@@ -52,7 +52,7 @@ describe('relational_tags', function() {
 			let red = new RelationalTag('red')
 			assert.strictEqual(red.name, 'red')
 			
-			assert.ok(red.name in RelationalTag.all_tags, 'red tag in all tags')
+			assert.ok(RelationalTag.all_tags.has(red.name), 'red tag in all tags')
 			assert.ok(RelationalTag.get('red') instanceof RelationalTag, 'red tag is relational tag')
 		})
 		
@@ -77,16 +77,16 @@ describe('relational_tags', function() {
 		})
 		
 		it('clears all existing tags and tagged entities', function() {
-			let num_tags = Object.keys(RelationalTag.all_tags).length
+			let num_tags = RelationalTag.all_tags.size
 			let num_cleared = RelationalTag.clear()
 			assert.equal(
 				num_tags, 
 				num_cleared, 
 				`tag count before clear ${num_tags} equals cleared count ${num_cleared}`
 			)
-			assert.equal(Object.keys(RelationalTag.all_tags).length, 0, 'tag count after clear is 0')
-			assert.equal(Object.keys(RelationalTag._tagged_entities).length, 0, 'tagged entity count is 0')
-			assert.equal(Object.keys(rt.all_tags).length, 0, 'module tag count after clear is 0')
+			assert.equal(RelationalTag.all_tags.size, 0, 'tag count after clear is 0')
+			assert.equal(RelationalTag._tagged_entities.size, 0, 'tagged entity count is 0')
+			assert.equal(rt.all_tags.size, 0, 'module tag count after clear is 0')
 		})
 		
 		it('fails to construct existing tags', function() {
@@ -140,7 +140,7 @@ describe('relational_tags', function() {
 				rt.new(name)
 			}
 			
-			assert.equal(tags.length, Object.keys(rt.all_tags).length, `create ${tags.length} tags`)
+			assert.equal(tags.length, rt.all_tags.size, `create ${tags.length} tags`)
 			
 			assert.ok(rt.get(tags[0], false) instanceof RelationalTag, `created tag ${tags[0]}`)
 		})
@@ -200,8 +200,18 @@ describe('relational_tags', function() {
 			
 			rt.delete(deleted)
 			temp_logger.TempLogger.CONSOLE_METHOD['log'](rt.all_tags)
-			assert.ok(rt.all_tags[deleted.name] === undefined, `${deleted.name} not in rt.all_tags`)
+			assert.ok(
+				rt.all_tags[deleted.name] === undefined, 
+				`${deleted.name} not in rt.all_tags after delete by reference`
+			)
 			assert.ok(RelationalTag.all_tags[deleted.name] === undefined, `${deleted.name} not in RT.all_tags`)
+			
+			deleted = rt.new('deleted')
+			rt.delete(deleted.name)
+			assert.ok(
+				rt.all_tags[deleted.name] === undefined, 
+				`${deleted.name} not in rt.all_tags after delete by name`
+			)
 		})
 		
 		it('fails to delete missing tags quietly', function() {
@@ -213,9 +223,87 @@ describe('relational_tags', function() {
 		})
 	})
 	
-	describe.skip('connect')
+	describe('load', function() {
+		it('loads tags from flat list', function() {
+			console.log('debug reset tags')
+			rt.clear()
+			
+			let tag_names = ['red', 'green', 'blue', 'blue']
+			rt.load(tag_names)
+			
+			// remove duplicates
+			tag_names = new Array(...new Set(tag_names))
+			assert.equal(
+				rt.all_tags.size, 
+				tag_names.length, 
+				`created ${tag_names.length} tags from flat list`
+			)
+		})
+		
+		it('loads connected tags as hierarchical dict', function() {
+			console.log('debug reset tags')
+			rt.clear()
+			
+			let tags = {
+				'color': ['red', 'green', 'blue', 'blue', 'orange'],
+				'fruit': ['banana', 'orange']
+			}
+			let tag_tag_type = RelationalTagConnection.TYPE_TO_TAG_CHILD
+			
+			// load tags graph
+			rt.load(tags)
+			
+			// test graph structure
+			assert.ok(rt.get('color').connections.has(rt.get('red')), 'red is in color connections')
+			assert.ok(rt.get('red').connections.has(rt.get('color')), 'color is in red connections')
+			
+			let red_to_color = rt.get('red').connections.get(rt.get('color'))
+			let color_to_red = rt.get('color').connections.get(rt.get('red'))
+			assert.ok(red_to_color instanceof RelationalTagConnection, 'red-color is connection')
+			assert.ok(
+				red_to_color.equals(color_to_red.inverse()), 
+				`red-color ${red_to_color} equals color-red.inverse ${color_to_red}`
+			)
+			
+			assert.ok(
+				rt.get('color').connections.has(rt.get('orange')) &&
+				rt.get('fruit').connections.has(rt.get('orange')),
+				'orange is child of color and fruit'
+			)
+		})
+	})
 	
-	describe.skip('disconnect')
+	describe('managing connections', function() {
+		let tag_names = ['']
+		
+		before(function() {
+			
+		})
+		
+		describe.skip('instance.connect_to, class.connect', function() {
+			before(function() {
+				
+			})
+		
+			it('connects to tags', function() {
+			
+			})
+		
+			it('connects to entities', function() {
+			
+			})
+		})
+	
+		describe.skip('instance.disconnect_to, class.disconnect', function() {
+			it('disconnects from tags', function() {
+			
+			})
+		
+			it('disconnects from entities', function() {
+			
+			})
+		})
+	})
 	
 	describe('RelationalTagConnection', function() {
 		let tags = ['red', 'green', 'blue']
@@ -293,7 +381,7 @@ describe('relational_tags', function() {
 		})
 		
 		describe.skip('inverse', function() {
-			it('words for all connection types', function() {
+			it('works for all connection types', function() {
 				
 			})
 		})
