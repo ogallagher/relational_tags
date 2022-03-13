@@ -71,7 +71,7 @@ class TestRelEntity(FalseRelEntity):
 
 # module vars
 
-VERSION:str = '0.0.7'
+VERSION:str = '0.0.8'
 
 STR_TO_LOG_LEVEL:Dict[str,int] = {
     'debug': logging.DEBUG,
@@ -255,24 +255,43 @@ def flat_tags(tag_names:List[str], entities:List[Any]) -> Tuple[str,int,int]:
             len(entities), len(tagged_entities)
         ))
     
-    # save and load single tag
-    rtag_name = random.choice(tag_names)
-    rtag_og = RelationalTag.get(rtag_name)
-    rtag_str = RelationalTag.save_tag(rtag_name)
-    rtag_og.delete_self()
-    rtag_load = RelationalTag.load_tag(rtag_str)
-    if rtag_og == rtag_load:
-        passes += 1
-        log.debug('saved and reloaded tag {} as {}'.format(
-            rtag_og,
-            rtag_load
-        ))
-    else:
-        fails += 1
-        log.error('failed to save and reload {} as {}'.format(
-            rtag_og,
-            rtag_load
-        ))
+    # remove unsupported entities
+    for entity, connections in tagged_entities:
+        if entity.__class__ not in RelationalEntity.classes:
+            log.info('remove non relational entity {}'.format(entity))
+            RelationalTag.disconnect_entity(entity)
+        else:
+            log.debug('keep relational entity {}'.format(entity))
+    # end for ent in ents
+    
+    # save and load all tags
+    for rtag_name in tag_names:
+        rtag_og = RelationalTag.get(rtag_name)
+        rtag_str = RelationalTag.save_tag(rtag_name)
+        rtag_og.delete_self()
+        try:
+            rtag_load = RelationalTag.load_tag(rtag_str)
+            if rtag_og == rtag_load:
+                passes += 1
+                log.debug('saved and reloaded tag {} as {}'.format(
+                    rtag_og,
+                    rtag_load
+                ))
+            else:
+                fails += 1
+                log.error('failed to save and reload {} as {}'.format(
+                    rtag_og,
+                    rtag_load
+                ))
+                
+        except RelationalTagError as e:
+            fails += 1
+            log.error(e)
+            log.error('failed to save and reload {} from {}'.format(
+                rtag_og,
+                rtag_str
+            ))
+    # end for rtag_name in rtag_names
     
     return (name, passes, fails)
 # end flat_tags
@@ -311,23 +330,25 @@ def hier_tags(hier_tag_names:Dict[str,List[str]], entities:List[Any]) -> Tuple[s
         log.error('input tags: {}'.format(' '.join(unique_tag_names)))
         log.error('output tags: {}'.format(' '.join([rtag.name for rtag in rtags])))
     
-    # save and load single tag
-    rtag_og = random.choice(rtags)
-    rtag_str = str(rtag_og)
-    rtag_og.delete_self()
-    rtag_load = RelationalTag.load_tag(rtag_str)
-    if rtag_og == rtag_load:
-        passes += 1
-        log.debug('saved and reloaded tag {} as {}'.format(
-            rtag_og,
-            rtag_load
-        ))
-    else:
-        fails += 1
-        log.error('failed to save and reload {} as {}'.format(
-            rtag_og,
-            rtag_load
-        ))
+    # save and load every tag
+    for rtag in rtags:
+        rtag_og = rtag
+        rtag_str = str(rtag_og)
+        rtag_og.delete_self()
+        rtag_load = RelationalTag.load_tag(rtag_str)
+        if rtag_og == rtag_load:
+            passes += 1
+            log.debug('saved and reloaded tag {} as {}'.format(
+                rtag_og,
+                rtag_load
+            ))
+        else:
+            fails += 1
+            log.error('failed to save and reload {} as {}'.format(
+                rtag_og,
+                rtag_load
+            ))
+    # end for rtag in rtags
     
     return (name,passes,fails)
 # end rel_tags
@@ -400,10 +421,11 @@ def rents(tag_names:List[str]) -> Tuple[str,int,int]:
     )))
     
     rtags_json = rtags.save_json()
+    log.debug('rtags.save_json => {}:{}'.format(type(rtags_json), rtags_json))
     rtags.clear()
     
     log.debug('load rel tag system w rel entities')
-    rtags.load_json(rtags_json)
+    rtags.load_json(rtags_json, get_if_exists=True, skip_bad_conns=True)
     rents_load = rtags.get_tagged_entities()
     log.debug('loaded tagged entities:\n{}\n'.format('\n'.join(
         [str(rent_load) for rent_load,rent_conns_load in rents_load]
