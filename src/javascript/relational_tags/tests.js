@@ -186,17 +186,32 @@ describe('relational_tags', function() {
 		})
 	})
 	
-	describe.skip('get', function() {
+	describe('get', function() {
+		before(function() {
+			rt.clear()
+			rt.load({
+				'red': [],
+				'color': 'red'
+			})
+		})
+		
 		it('gets existing tags', function() {
-			
+			assert.equal(rt.get('red').name, 'red')
+			assert.equal(rt.get('color').name, 'color')
 		})
 		
 		it('creates new tags with new_if_missing', function() {
-			
+			assert.equal(rt.get('yellow', true).name, rt.get('yellow').name)
 		})
 		
 		it('fails to get missing tags', function() {
-			
+			assert.throws(
+				function() { rt.get('blue', false) },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_MISSING
+				}
+			)
 		})
 	})
 	
@@ -217,7 +232,6 @@ describe('relational_tags', function() {
 			let deleted = rt.new('deleted')
 			
 			rt.delete(deleted)
-			temp_logger.TempLogger.CONSOLE_METHOD['log'](rt.all_tags)
 			assert.ok(
 				rt.all_tags[deleted.name] === undefined, 
 				`${deleted.name} not in rt.all_tags after delete by reference`
@@ -292,33 +306,132 @@ describe('relational_tags', function() {
 	})
 	
 	describe('managing connections', function() {
-		let tag_names = ['']
+		let tag_names = ['color', 'red', 'yellow']
+		let apple = 'apple'
+		let banana = 'banana'
 		
-		before(function() {
-			
-		})
-		
-		describe.skip('instance.connect_to, class.connect', function() {
-			before(function() {
+		describe('instance.connect_to, class.connect', function() {
+			it('connects tags', function() {
+				// reset
+				rt.clear()
+				rt.load(tag_names)
+				let color = rt.get('color')
+				let red = rt.get('red')
+				let yellow = rt.get('yellow')
 				
+				// connect colors w instance methods
+				color.connect_to(red, RelationalTagConnection.TYPE_TO_TAG_CHILD)
+				yellow.connect_to(color, RelationalTagConnection.TYPE_TO_TAG_PARENT)
+				
+				// reconnect is allowed
+				color.connect_to(red, RelationalTagConnection.TYPE_TO_TAG_CHILD)
+				
+				// check connections
+				assert.ok(color.connections.has(red))
+				assert.ok(yellow.connections.has(color))
+				
+				// reset
+				rt.clear()
+				rt.load(tag_names)
+				color = rt.get('color')
+				red = rt.get('red')
+				yellow = rt.get('yellow')
+				
+				// connect colors w class & module methods
+				rt.connect(color, red, RelationalTagConnection.TYPE_TO_TAG_CHILD)
+				RelationalTag.connect(yellow, color, RelationalTagConnection.TYPE_TO_TAG_PARENT)
+				
+				// check connections
+				assert.ok(color.connections.has(red))
+				assert.ok(yellow.connections.has(color))
 			})
-		
-			it('connects to tags', function() {
 			
-			})
-		
-			it('connects to entities', function() {
-			
+			it('connects entities', function() {
+				// reset
+				rt.clear()
+				rt.load(tag_names)
+				let color = rt.get('color')
+				let red = rt.get('red')
+				let yellow = rt.get('yellow')
+				
+				// connect colors to entities
+				red.connect_to(apple)
+				rt.connect(yellow, banana)
+				
+				// validate connections
+				assert.ok(red.connections.has(apple))
+				assert.equal(red.connections.get(apple).type, RelationalTagConnection.TYPE_TO_ENT)
+				assert.ok(!red.connections.has(banana))
+				
+				assert.ok(RelationalTag._tagged_entities.get(banana).has(yellow))
+				assert.equal(
+					RelationalTag._tagged_entities.get(banana).get(yellow).type,
+					RelationalTagConnection.TYPE_ENT_TO_TAG
+				)
+				
+				// fail to connect backwards
+				assert.throws(
+					function() { rt.connect(banana, yellow) },
+					{
+						name: 'RelationalTagException',
+						type: RelationalTagException.TYPE_WRONG_TYPE
+					}
+				)
 			})
 		})
-	
-		describe.skip('instance.disconnect_to, class.disconnect', function() {
-			it('disconnects from tags', function() {
-			
-			})
 		
-			it('disconnects from entities', function() {
+		describe('instance.disconnect_to, class.disconnect', function() {
+			let color, red, yellow
 			
+			before(function() {
+				rt.clear()
+				
+				rt.load(tag_names)
+				
+				color = rt.get('color')
+				red = rt.get('red')
+				yellow = rt.get('yellow')
+				
+				color.connect_to(red)
+				color.connect_to(yellow)
+				red.connect_to(apple)
+				yellow.connect_to(banana)
+			})
+			
+			it('disconnects tags', function() {
+				// instance method
+				color.disconnect_to(red)
+				// static method
+				rt.disconnect(yellow, color)
+				
+				// validate
+				assert.ok(
+					!color.connections.has(red) && !red.connections.has(color),
+					'color-red and red-color disconnected'
+				)
+				assert.ok(
+					!yellow.connections.has(color) && !color.connections.has(yellow),
+					'yellow-color and color-yellow disconnected'
+				)
+			})
+			
+			it('disconnects entities', function() {
+				// instance method
+				red.disconnect_to(apple)
+				// static method
+				rt.disconnect(yellow, banana)
+				
+				// validate
+				assert.ok(
+					!red.connections.has(apple) && 
+					!RelationalTag._tagged_entities.get(apple).has(red),
+					'red-apple and apple-red disconnected'
+				)
+				assert.ok(
+					!yellow.connections.has(banana) && 
+					!RelationalTag._tagged_entities.get(banana).has(yellow),
+					'yellow-banana and banana-yellow disconnected'
+				)
 			})
 		})
 	})
@@ -437,9 +550,29 @@ describe('relational_tags', function() {
 			})
 		})
 		
-		describe.skip('inverse', function() {
+		describe('inverse', function() {
 			it('works for all connection types', function() {
+				let red_apple = rt.connect(rt.get('red'), 'apple')
+				let apple_red = red_apple.inverse()
 				
+				assert.equal(red_apple.type, apple_red.inverse().type, 'tag-ent inverse type')
+				assert.ok(red_apple.inverse().equals(apple_red), 'tag-ent inverse connection')
+				
+				let color_green = rt.connect(
+					rt.new('color'), 
+					rt.get('green'), 
+					RelationalTagConnection.TYPE_TO_TAG_CHILD
+				)
+				let green_color = color_green.inverse()
+				
+				assert.equal(color_green.type, green_color.inverse().type, 'parent-child inverse type')
+				assert.ok(color_green.inverse().equals(green_color), 'parent-child inverse connection')
+				
+				color_green.type = RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED
+				green_color = color_green.inverse()
+				
+				assert.equal(color_green.type, green_color.type, 'tag-tag undirected inverse type')
+				assert.ok(color_green.inverse().equals(green_color), 'tag-tag undirected inverse connection')
 			})
 		})
 	})

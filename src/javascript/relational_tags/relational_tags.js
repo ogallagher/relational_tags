@@ -233,6 +233,8 @@ RelationalTag.is_case_sensitive = function() {
  * @param {String} connection_type Connection type.
  * 
  * @returns RelationalTagConnection
+ * 
+ * @throws {RelationalTagException} The given source and target don't match the connection type.
  */
 RelationalTag.connect = function(tag_or_connection, target, connection_type) {
 	const source_is_connection = (tag_or_connection instanceof RelationalTagConnection)
@@ -243,6 +245,15 @@ RelationalTag.connect = function(tag_or_connection, target, connection_type) {
 		return RelationalTag.connect(conn.source, conn.target, conn.type)
 	}
 	else {
+		let tag = tag_or_connection
+		
+		if (!(tag instanceof RelationalTag)) {
+			throw new RelationalTagException(
+				`first arg must be a RelationalTag instance, not ${typeof tag}`, 
+				RelationalTagException.TYPE_WRONG_TYPE
+			)
+		}
+		
 		const target_is_tag = (target instanceof RelationalTag)
 		
 		// resolve type as default
@@ -254,8 +265,6 @@ RelationalTag.connect = function(tag_or_connection, target, connection_type) {
 				connection_type = RelationalTagConnection.TYPE_TO_ENT
 			}
 		}
-		
-		let tag = tag_or_connection
 		
 		// connection
 		let conn = new RelationalTagConnection(tag, target, connection_type)
@@ -728,7 +737,7 @@ class RelationalTagConnection {
 	 * 
 	 * @param {String} type
 	 * 
-	 * @throws RelationalTagException The connection type is incompatible with the given source
+	 * @throws {RelationalTagException} The connection type is incompatible with the given source
 	 * and target.
 	 */
 	constructor(source, target, type) {
