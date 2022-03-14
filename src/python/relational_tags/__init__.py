@@ -7,6 +7,7 @@
 # imports
 
 from typing import List, Dict, Union, Any, Tuple, Type
+import sys
 import traceback
 import logging
 from logging import Logger
@@ -14,9 +15,15 @@ import json
 
 # module vars
 
-VERSION:str = '0.0.8'
+VERSION:str = '0.0.9'
 """Package version.
 """
+
+log:logging.Logger = logging.getLogger('rt')
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter(fmt='{name}.{levelname}.{lineno}: {msg}', style='{')
+handler.setFormatter(formatter)
+log.addHandler(handler)
 
 # types
 
@@ -50,7 +57,7 @@ class HashableEntity:
         if isinstance(other,HashableEntity):
             return self.hash == other.hash
         
-        if '__hash__' not in dir(other) or entity.__hash__ is None:
+        if '__hash__' not in dir(other) or other.__hash__ is None:
             return self.hash == HashableEntity(other).hash
         
         else:
@@ -177,7 +184,7 @@ class RelationalTag:
     relational tags.
     """
     
-    log:Logger = logging.getLogger('{}.RelationalTag'.format(__name__))
+    log:Logger = log.getChild('RelationalTag')
     
     _is_case_sensitive:bool = False
     """Whether tag uniqueness is case-sensitive.
@@ -251,7 +258,7 @@ class RelationalTag:
     @classmethod
     def delete(cls, tag:Union[str,'RelationalTag']):
         try:
-            # convert tag to RelationalTag
+            # convert tag name to RelationalTag
             if isinstance(tag,str):
                 if not cls._is_case_sensitive:
                     tag = tag.lower()
@@ -262,7 +269,7 @@ class RelationalTag:
             cls.log.debug('deleting tag {}'.format(tag))
             
             # delete references from others
-            for connection in tag.connections.values():
+            for connection in list(tag.connections.values()):
                 other = connection.target
                 
                 if isinstance(other, RelationalTag):
@@ -418,7 +425,7 @@ class RelationalTag:
         
         if isinstance(tag_or_connection, RelationalTagConnection):
             connection:RelationalTagConnection = tag_or_connection
-            cls.connect(connection.source, connection.target, connection.type)
+            return cls.connect(connection.source, connection.target, connection.type)
         
         else:
             tag:RelationalTag = tag_or_connection
@@ -429,14 +436,16 @@ class RelationalTag:
                     connection_type = RelationalTagConnection.TO_TAG_UNDIRECTED
                 else:
                     connection_type = RelationalTagConnection.TO_ENT
-        
+            
+            hashable_target = cls._entity_to_hashable(target)
+            
             # connection
             connection = RelationalTagConnection(
                 source=tag,
                 target=target,
                 connection_type=connection_type
             )
-            tag.connections[cls._entity_to_hashable(target)] = connection
+            tag.connections[hashable_target] = connection
             
             # inverse connection
             inverse_connection = connection.inverse()
@@ -445,12 +454,10 @@ class RelationalTag:
                 target.connections[tag] = inverse_connection
             else:
                 # entity connection
-                entity = cls._entity_to_hashable(target)
+                if not hashable_target in cls._tagged_entities:
+                    cls._tagged_entities[hashable_target] = {}
                 
-                if not entity in cls._tagged_entities:
-                    cls._tagged_entities[entity] = {}
-                
-                cls._tagged_entities[entity][tag] = inverse_connection
+                cls._tagged_entities[hashable_target][tag] = inverse_connection
         
             # return
             return connection
@@ -693,13 +700,13 @@ class RelationalTag:
         return hash(self.name)
     # end __hash__
     
-    def connect_to(self, other:Union['RelationalTag',Any], connection_type:int=None):
+    def connect_to(self, other:Union['RelationalTag',Any], connection_type:int=None) -> 'RelationalTagConnection':
         """Connect tag to another tag or entity.
         
         Calls the class method `RelationalTag.connect`.
         """
         
-        type(self).connect(
+        return type(self).connect(
             tag_or_connection=self,
             target=other,
             connection_type=connection_type
@@ -724,7 +731,7 @@ class RelationalTagConnection:
     """Relational tag connection.
     """
     
-    log:logging.Logger = logging.getLogger('{}.RelationalTagConnection'.format(__name__))
+    log:logging.Logger = log.getChild('RelationalTagConnection'.format(__name__))
     
     TO_TAG_UNDIRECTED:int = 1
     """Undirected tag-tag connection."""
@@ -984,11 +991,16 @@ class RelationalTagConnection:
     # end __str__
     
     def __eq__(self, other) -> bool:
+        """Compare relational tag connections.
+        
+        Note this version of equality currently means self.inverse() != self.
+        """
+        
         return isinstance(other,RelationalTagConnection) and hash(self) == hash(other)
     # end __eq__
     
     def __hash__(self):
-        return hash((self.source, self.target, self.type))
+        return hash((str(self.source), str(self.target), self.type))
     # end __hash__
     
     def inverse(self) -> 'RelationalTagConnection':

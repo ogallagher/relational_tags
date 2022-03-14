@@ -3,12 +3,15 @@
 
 # imports
 
-from typing import Tuple, List, Any, Dict, Union
+from typing import *
 import sys
 import logging
 from getopt import getopt, GetoptError
+from unittest import TestCase
 import random
 import json
+import traceback
+import re
 
 from relational_tags import (
     RelationalTag, 
@@ -16,7 +19,7 @@ from relational_tags import (
     RelationalTagError, 
     RelationalEntity
 )
-import relational_tags as rtags
+import relational_tags as rt
 
 # types
 
@@ -71,485 +74,435 @@ class TestRelEntity(FalseRelEntity):
 
 # module vars
 
-VERSION:str = '0.0.8'
+VERSION:str = '0.0.9'
 
-STR_TO_LOG_LEVEL:Dict[str,int] = {
-    'debug': logging.DEBUG,
-    'info': logging.INFO,
-    'warning': logging.WARNING,
-    'warn': logging.WARNING,
-    'error': logging.ERROR,
-    'err': logging.ERROR,
-    'critical': logging.CRITICAL
-}
-
-ALL_TESTS:List[str] = [
-    'flat-tags',
-    'hier-tags',
-    'module-funcs',
-    'rents',
-    'all'
-]
-
-log:logging.Logger
-
-HELP_TEMPLATE:str = (
-'''
-relational tags v{rtags_version}, unit tests v{version}
-
--h | --help
-
-    Show this message and quit.
-
--l | --logging <level>
-
-    Set the logging level to one of: {log_levels}
-
--t | --tests <tests>
-
-    <tests> is a comma delimited list including any of: {tests}
-
--v | --version
-
-    Show the versions of these tests and quit.
-'''
-)
-
-if __name__ == '__main__':
-    logging.basicConfig()
-    log = logging.getLogger()
-else:
-    log = logging.getLogger(__name__)
-
+log:logging.Logger = logging.getLogger('tests')
 log.setLevel(logging.DEBUG)
 
-# methods
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter(fmt='{name}.{levelname}.{lineno}: {msg}', style='{')
+handler.setFormatter(formatter)
+log.addHandler(handler)
 
-def help() -> str:
-    """Help string.
+# tests
+
+class TestRelationalTags(TestCase):
+    """Relational tags package general unit tests and base class.
     """
     
-    help_str:str = HELP_TEMPLATE.format(
-        log_levels=','.join(STR_TO_LOG_LEVEL.keys()),
-        tests=','.join(ALL_TESTS),
-        rtags_version=rtags.VERSION,
-        version=VERSION
-    )
+    log:logging.Logger
     
-    return help_str
-# end help
-
-def flat_tags(tag_names:List[str], entities:List[Any]) -> Tuple[str,int,int]:
-    """Test flat tags.
-    """
-    
-    name = 'flat-tags'
-    passes = 0
-    fails = 0
-    len_tag_names = len(set(tag_names))
-    
-    rtags:List[RelationalTag] = []
-    
-    # create new tags using constructors
-    for tag_name in tag_names:
-        try:
-            rtag = RelationalTag(name=tag_name)
-        except RelationalTagError as e:
-            if e.type == RelationalTagError.TYPE_COLLISION:
-                log.warning(e)
-            else:
-                raise e
-    # end for tag in names
-    
-    added = len(RelationalTag.all_tags)
-    if added == len_tag_names:
-        passes += 1
-        log.debug('all tags after {}.constructors: {}'.format(
-            name,
-            ' '.join(RelationalTag.all_tags.keys())
-        ))
-    else :
-        fails += 1
-        log.error('found {} tags after creating {} unique tags'.format(added, len_tag_names))
-    
-    # reset tags
-    deleted = RelationalTag.clear()
-    if deleted == len_tag_names:
-        passes += 1
-    else:
-        fails += 1
-        log.error('found {} tags after clearing {} unique tags'.format(deleted, len_tag_names))
-    
-    # create new tags using class methods
-    for tag_name in tag_names:
-        rtag = RelationalTag.new(tag_name)
+    @classmethod 
+    def setUpClass(cls):
+        cls.log = log.getChild(cls.__name__)
+        cls.log.setLevel(logging.DEBUG)
         
-    added = len(RelationalTag.all_tags)
-    if added == len_tag_names:
-        passes += 1
-        log.debug('all tags after {}.class-new: {}'.format(
-            name,
-            ' '.join(RelationalTag.all_tags.keys())
-        ))
-    else :
-        fails += 1
-        log.error('found {} tags after creating {} unique tags'.format(added, len_tag_names))
+        cls.log.info(f'begin relational tags {cls.__name__} tests')
+    # end setUpClass
     
-    # delete one tag via class method
-    RelationalTag.delete(tag_names[0])
-    if len(RelationalTag.all_tags) == len_tag_names - 1:
-        passes += 1
-    else:
-        fails += 1
-        log.error('failed to delete {} with class method'.format(tag_names[0]))
+    @classmethod
+    def tearDownClass(cls):
+        cls.log.info(f'end relational tags {cls.__name__} tests')
+    # end tearDownClass
     
-    # delete another tag via instance method
-    rtag = RelationalTag.get(tag_names[1], new_if_missing=False)
-    rtag.delete_self()
-    if (len(RelationalTag.all_tags) == len_tag_names - 2):
-        passes += 1
-    else:
-        fails += 1
-        log.error('failed to delete {} with instance method'.format(rtag))
+    def setUp(self):
+        cls = type(self)
+        
+        cls.log.debug('begin test')
+    # end setUp
     
-    # load flat tags
-    RelationalTag.clear()
-    RelationalTag.load(tag_names)
-    if (len(RelationalTag.all_tags) == len_tag_names):
-        passes += 1
-    else:
-        fails += 1
-        log.error('failed to load flat tags')
+    def tearDown(self):
+        cls = type(self)
+        
+        cls.log.debug('end test')
+    # end tearDown
     
-    # tag-entity connections
-    tags_per_entity = 3
-    for entity in entities:
-        for _ in range(tags_per_entity):
-            # tag entities with class method
-            RelationalTag.connect(
-                tag_or_connection=RelationalTag.get(random.choice(tag_names)),
-                target=entity
-            )
-            
-            # tag entities with instance method
-            rtag = RelationalTag.get(random.choice(tag_names))
-            rtag.connect_to(other=entity)
-        # end for _ in tags_per_entity
-    # end for entity in entities
-    
-    tagged_entities = RelationalTag.get_tagged_entities()
-    log.debug('all tagged entities:\n{}'.format(
-        '\n'.join([
-            '{}: {}'.format(
-                entity,
-                ' '.join([tag.name for tag in connections.keys()])
-            )
-            for entity, connections in tagged_entities
-        ])
-    ))
-    if (len(tagged_entities) == len(entities)):
-        passes += 1
-    else:
-        fails += 1
-        log.error('failed to tag {} entities; found {} tagged entities'.format(
-            len(entities), len(tagged_entities)
-        ))
-    
-    # remove unsupported entities
-    for entity, connections in tagged_entities:
-        if entity.__class__ not in RelationalEntity.classes:
-            log.info('remove non relational entity {}'.format(entity))
-            RelationalTag.disconnect_entity(entity)
-        else:
-            log.debug('keep relational entity {}'.format(entity))
-    # end for ent in ents
-    
-    # save and load all tags
-    for rtag_name in tag_names:
-        rtag_og = RelationalTag.get(rtag_name)
-        rtag_str = RelationalTag.save_tag(rtag_name)
-        rtag_og.delete_self()
-        try:
-            rtag_load = RelationalTag.load_tag(rtag_str)
-            if rtag_og == rtag_load:
-                passes += 1
-                log.debug('saved and reloaded tag {} as {}'.format(
-                    rtag_og,
-                    rtag_load
-                ))
-            else:
-                fails += 1
-                log.error('failed to save and reload {} as {}'.format(
-                    rtag_og,
-                    rtag_load
-                ))
+    def test_pkg_version(self):
+        cls = type(self)
+        setup_cfg_path:str = 'setup.cfg'
+        
+        with open(setup_cfg_path, mode='r') as f:
+            setup_cfg:List[str] = f.read().split('\n')
+            setup_cfg_version:Optional[str] = None
+            for line in setup_cfg:
+                parts = re.split(r'\s*=\s*', line, maxsplit=1)
                 
-        except RelationalTagError as e:
-            fails += 1
-            log.error(e)
-            log.error('failed to save and reload {} from {}'.format(
-                rtag_og,
-                rtag_str
-            ))
-    # end for rtag_name in rtag_names
-    
-    return (name, passes, fails)
-# end flat_tags
+                if len(parts) == 2 and parts[0].lower().strip() == 'version':
+                    setup_cfg_version = parts[1]
+            # end for line
+            
+            if setup_cfg_version is None:
+                cls.log.warning(f'unable to parse version from {setup_cfg_path}')
+            
+            self.assertEqual(rt.VERSION, setup_cfg_version)
+        # end with file
+    # end test_pkg_version
+# end TestRelationalTags
 
-def hier_tags(hier_tag_names:Dict[str,List[str]], entities:List[Any]) -> Tuple[str,int,int]:
-    """Test hierarchical tags.
+class TestFlatTags(TestRelationalTags):
+    """General flat relational tags tests.
     """
     
-    name = 'hier-tags'
-    passes = 0
-    fails = 0
+    tag_names: List[str]
     
-    unique_tag_names = []
-    for ktag,vtags in hier_tag_names.items():
-        unique_tag_names.append(ktag)
-        unique_tag_names += vtags
+    raw_entities: List[Any]
     
-    unique_tag_names = set(unique_tag_names)
-    log.debug('loading {} unique hierarchical tags'.format(len(unique_tag_names)))
-    
-    # test hierarchical tags load via dict
-    rtags:List[RelationalTag] = RelationalTag.load(
-        tags=hier_tag_names, 
-        tag_tag_type=RelationalTagConnection.TO_TAG_CHILD
-    )
-    log.debug('\n' + '\n'.join(
-        str(rtag)
-        for rtag in rtags
-    ))
-    
-    if len(rtags) == len(unique_tag_names):
-        passes += 1
-    else:
-        fails += 1
-        log.error('loaded {}/{} hierarchical tags'.format(len(rtags),len(unique_tag_names)))
-        log.error('input tags: {}'.format(' '.join(unique_tag_names)))
-        log.error('output tags: {}'.format(' '.join([rtag.name for rtag in rtags])))
-    
-    # save and load every tag
-    for rtag in rtags:
-        rtag_og = rtag
-        rtag_str = str(rtag_og)
-        rtag_og.delete_self()
-        rtag_load = RelationalTag.load_tag(rtag_str)
-        if rtag_og == rtag_load:
-            passes += 1
-            log.debug('saved and reloaded tag {} as {}'.format(
-                rtag_og,
-                rtag_load
-            ))
-        else:
-            fails += 1
-            log.error('failed to save and reload {} as {}'.format(
-                rtag_og,
-                rtag_load
-            ))
-    # end for rtag in rtags
-    
-    return (name,passes,fails)
-# end rel_tags
-
-def module_funcs(hier_tag_names:Dict[str,List[str]], entities:List[Any]) -> Tuple[str,int,int]:
-    name = 'module-funcs'
-    passes = 0
-    fails = 0
-    
-    # module.clear
-    rtags.clear()
-    if len(rtags.all_tags.keys()) == 0:
-        passes += 1
-    else:
-        fails += 1
-        log.error('failed to clear tags with module.clear; {} remaining'.format(len(rtags.all_tags.keys())))
-    
-    # populate tag system
-    tags_og = rtags.load(tags=hier_tag_names,tag_tag_type=RelationalTagConnection.TO_TAG_CHILD)
-    tags_str = rtags.save_json()
-    rtags.clear()
-    log.debug('tags json:\n{}\n'.format(tags_str))
-    
-    tags_load = rtags.load_json(tags_str)
-    
-    if len(tags_og) == len(tags_load):
-        passes += 1
-    else:
-        fails += 1
-        log.error('failed to save and reload relational tag systems of length {} != {}'.format(
-            len(tags_og),
-            len(tags_load)
-        ))
-    
-    return (name,passes,fails)
-# end module_funcs
-
-def rents(tag_names:List[str]) -> Tuple[str,int,int]:
-    name = 'rents'
-    passes = 0
-    fails = 0
-    
-    log.info('test loading and saving relational entities')
-    
-    # reset
-    rtags.clear()
-    
-    frent = FalseRelEntity('frent-1')
-    trent = TestRelEntity('trent-1')
-    
-    log.debug(RelationalEntity.classes)
-    
-    tags = rtags.load(tag_names)
-    log.debug('loaded {} tags: {}'.format(len(tags), set(tag_names)))
-    
-    try:
-        for i in range(len(tags) // 2):
-            random.choice(tags).connect_to(frent)
-            random.choice(tags).connect_to(trent)
-        # end for i in len(tags) // 2
+    @classmethod
+    def setUpClass(cls):
+        """Reset initial flat tags.
+        """
         
-    except NotImplementedError:
-        log.error('error tagging rel entities')
-        raise
+        super().setUpClass()
+        
+        cls.tag_names = [
+            'fruit',
+            'apple', 'banana', 'cinnamon', 'orange',
+            'animal',
+            'elephant', 'fish', 'giraffe', 'hyena',
+            'color',
+            'indigo', 'red', 'green', 'blue', 'orange'
+        ]
+        
+        cls.raw_entities = [
+            {'name': 'Owen Gallagher', 'github': 'https://github.com/ogallagher'},
+            TestEntity(),
+            ('tuple-1','tuple-2','tuple-3'),
+            ['list-1','list-2','list-3']
+        ]
+    # end setUpClass
     
-    log.debug('save rel tag system w rel entities')
-    rents_orig = rtags.get_tagged_entities()
-    log.debug('original tagged entities:\n{}\n'.format('\n'.join(
-        [str(rent_orig) for rent_orig,rent_conns_orig in rents_orig]
-    )))
+    def setUp(self):
+        super().setUp()
+        cls = type(self)
+        
+        cls.log.info('reset tags')
+        rt.clear()
+    # end setUp
     
-    rtags_json = rtags.save_json()
-    log.debug('rtags.save_json => {}:{}'.format(type(rtags_json), rtags_json))
-    rtags.clear()
-    
-    log.debug('load rel tag system w rel entities')
-    rtags.load_json(rtags_json, get_if_exists=True, skip_bad_conns=True)
-    rents_load = rtags.get_tagged_entities()
-    log.debug('loaded tagged entities:\n{}\n'.format('\n'.join(
-        [str(rent_load) for rent_load,rent_conns_load in rents_load]
-    )))
-    
-    if len(rents_load) == len(rents_orig) - 1:
-        passes += 1
-    else:
-        fails += 1
-        log.error('failed to load ({o}-1)/{o} valid rel entities'.format(
-            o=len(rents_orig)
-        ))
-    
-    return (name,passes,fails)
-# end load_save_ents
-
-def main():
-    log.info('start relational tags python tests v{} for v{}'.format(
-        VERSION,
-        rtags.VERSION
-    ))
-    
-    test_selection:List['str'] = ['all']
-    
-    # parse cli options
-    if (len(sys.argv) - 1) > 0:
-        try:
-            opts,args = getopt(
-                sys.argv[1:],
-                shortopts='hl:t:v',
-                longopts=[
-                    'help', 'logging=', 'tests=', 'version'
-                ]
-            )
+    def test_new(self):
+        cls = type(self)
+        
+        num_tags:int = len(set(cls.tag_names))
+        cls.log.debug(f'create {num_tags} unconnected tags via module, class, and constructor methods')
+        
+        for i in range(len(cls.tag_names)):
+            choice:int = i % 3
+            tag_name:str = cls.tag_names[i]
+            choice_name:str
+            rtag:RelationalTag
             
-            for opt,arg in opts:
-                if opt in ['-l', '--logging']:
-                    level:int = STR_TO_LOG_LEVEL[arg.lower().strip()]
-                    log.setLevel(level)
-                    log.info('set logging to level {}={}'.format(arg,level))
+            if choice == 0:
+                choice_name = 'constructor'
                 
-                elif opt in ['-t', '--tests']:
-                    if ',' not in arg:
-                        test_selection = [arg.lower().strip()]
-                        
+                try:
+                    rtag = RelationalTag(name=tag_name)
+            
+                except RelationalTagError as e:
+                    if e.type == RelationalTagError.TYPE_COLLISION:
+                        log.info(e)
                     else:
-                        test_selection = [
-                            test.lower().strip()
-                            for test in arg.split(',')
-                        ]
-                    
-                    log.info('set test selection to {}'.format(
-                        ','.join(test_selection)
-                    ))
+                        raise e
+            
+            elif choice == 1:
+                choice_name = 'class'
+                rtag = RelationalTag.new(name=tag_name)
                 
-                elif opt in ['-v', '--version']:
-                    print('v{}'.format(VERSION))
-                    quit()
-                
-                elif opt in ['-h', '--help']:
-                    print(help())
-                    quit()
-            # end for opt,arg in opts
+            else:
+                choice_name = 'module'
+                rtag = rt.new(name=tag_name)
+            
+            self.assertTrue(rtag.name in rt.all_tags, f'{rtag} not found after {choice_name} create')
+        # end for i in names
         
-        except GetoptError as e:
-            log.error(str(e))
-    # end if cli options
+        self.assertEqual(len(RelationalTag.all_tags), num_tags)
+    # end test_RelationalTag_constructor
     
-    entities = [
-        {'name': 'Owen Gallagher', 'github': 'https://github.com/ogallagher'},
-        TestEntity(),
-        ('tuple-1','tuple-2','tuple-3'),
-        ['list-1','list-2','list-3']
-    ]
+    def test_rt_load(self):
+        cls = type(self)
+        
+        num_tags:int = len(set(cls.tag_names))
+        cls.log.debug(f'create {num_tags} unconnected tags via names list load')
+        rt.load(cls.tag_names, tag_tag_type=RelationalTagConnection.TO_TAG_UNDIRECTED)
+        
+        self.assertEqual(num_tags, len(rt.all_tags))
+        
+        cls.log.debug('all tags after rt.load: {}'.format(
+            ' '.join(RelationalTag.all_tags.keys())
+        ))
+    # end test_rt_load
     
-    flat_tag_names = [
-        'fruit',
-        'apple','banana','cinnamon','orange',
-        'animal',
-        'elephant','fish','giraffe','hyena',
-        'color',
-        'indigo','red','green','blue','orange'
-    ]
+    def test_delete(self):
+        cls = type(self)
+        
+        rt.load(cls.tag_names)
+        
+        tag_name:str = cls.tag_names[0]
+        cls.log.debug(f'delete {tag_name} via module, class, and instance methods')
+        
+        rt.delete(tag_name)
+        self.assertTrue(tag_name not in rt.all_tags, f'{tag_name} found after module delete')
+        
+        rt.new(tag_name)
+        RelationalTag.delete(tag_name)
+        self.assertTrue(tag_name not in rt.all_tags, f'{tag_name} found after class delete')
+        
+        rt.new(tag_name)
+        RelationalTag.delete(tag_name)
+        self.assertTrue(tag_name not in rt.all_tags, f'{tag_name} found after class delete')
+    # end test_delete
     
-    hier_tag_names = {
-        'fruit': ['apple','banana','cinnamon','donut','orange'],
-        'animal': ['elephant','fish','giraffe','hyena'],
-        'color': ['red','green','blue','yellow','orange','indigo']
-    }
+    def test_get(self):
+        cls = type(self)
+        
+        rt.load(cls.tag_names)
+        
+        for i in [0, -1]:
+            with self.subTest(i=i):
+                tag_name:str = cls.tag_names[i]
+                self.assertEqual(rt.get(tag_name).name, tag_name, f'failed to get tags[{i}]={tag_name}')
+        # end for i
+        
+        # fail if not exists
+        with self.assertRaises(RelationalTagError):
+            rt.get('zamboni', new_if_missing=False)
+    # end test_get
     
-    if 'flat-tags' in test_selection or 'all' in test_selection:
-        # test tags, flat
-        name,passes,fails = flat_tags(flat_tag_names, entities)
-        if fails == 0:
-            log.info('{}: all {} tests passed'.format(name,passes))
-        else:
-            log.error('{}: {} passed, {} failed'.format(name,passes,fails))
+    def test_connect(self):
+        cls = type(self)
+        
+        # tag-entity connections
+        tags_per_entity = 3
+        for entity in cls.raw_entities:
+            for i in range(tags_per_entity):
+                tag:RelationalTag = rt.get(random.choice(cls.tag_names))
+                
+                with self.subTest(entity=entity, tag=tag):
+                    hashable_entity = RelationalTag._entity_to_hashable(entity)
+                    
+                    # tag entities with class method
+                    conn:RelationalTagConnection
+                    if i % 2 == 0:
+                        conn = RelationalTag.connect(
+                            tag_or_connection=tag,
+                            target=entity
+                        )
+                    else:
+                        conn = tag.connect_to(other=entity)
+                    
+                    self.assertEqual(conn.source, tag)
+                    self.assertEqual(conn.target, entity)
+                    self.assertEqual(
+                        tag.connections[hashable_entity],
+                        conn,
+                        f'{tag.connections[hashable_entity]} != {conn}'
+                    )
+                    self.assertEqual(
+                        RelationalTag._tagged_entities[hashable_entity][tag],
+                        conn.inverse(),
+                        f'{RelationalTag._tagged_entities[hashable_entity][tag]} != {conn}'
+                    )
+                # end with subTest
+            # end for _ in tags_per_entity
+        # end for entity in entities
+        
+        self.assertEqual(
+            len(RelationalTag._tagged_entities), 
+            len(cls.raw_entities), 
+            'not all entities are tagged'
+        )
+    # end test_connect
     
-    if 'hier-tags' in test_selection or 'all' in test_selection:
-        name,passes,fails = hier_tags(hier_tag_names, entities)
-        if fails == 0:
-            log.info('{}: all {} tests passed'.format(name,passes))
-        else:
-            log.error('{}: {} passed, {} failed'.format(name,passes,fails))
-    
-    if 'module-funcs' in test_selection or 'all' in test_selection:
-        name,passes,fails = module_funcs(hier_tag_names, entities)
-        if fails == 0:
-            log.info('{}: all {} tests passed'.format(name,passes))
-        else:
-            log.error('{}: {} passed, {} failed'.format(name,passes,fails))
-    
-    if 'rents' in test_selection or 'all' in test_selection:
-        name,passes,fails = rents(flat_tag_names)
-        if fails == 0:
-            log.info('{}: all {} tests passed'.format(name,passes))
-        else:
-            log.error('{}: {} passed, {} failed'.format(name,passes,fails))
-    
-    log.info('end relational tags python tests')
-# end main
+    def test_save_load_tag(self):
+        cls = type(self)
+        
+        rt.load(cls.tag_names)
+        
+        # create connections
+        min_conns_per_tag:int = 3
+        for tag in set(cls.tag_names):
+            for _ in range(min_conns_per_tag):
+                rt.connect(rt.get(tag), rt.get(random.choice(cls.tag_names)))
+        
+        num_conns:int = len(rt.get(cls.tag_names[0]).connections)
+        self.assertTrue(
+            num_conns >= min_conns_per_tag,
+            f'tag found with connection count {num_conns} < {min_conns_per_tag}'
+        )
+        
+        # save and load all tags
+        for tag_name in cls.tag_names:
+            tag_og = RelationalTag.get(tag_name, new_if_missing=True)
+            tag_str = RelationalTag.save_tag(tag_name)
+            tag_og.delete_self()
+            
+            with self.subTest(tag_og=tag_og, tag_str=tag_str):
+                try:
+                    tag_load = RelationalTag.load_tag(tag_str)
+                    
+                    self.assertEqual(
+                        tag_og, 
+                        tag_load,
+                        f'failed to save and reload {tag_og} as {tag_load} using string {tag_str}'
+                    )
+                
+                except RelationalTagError:
+                    cls.log.error(traceback.format_exc())
+                    self.assertTrue(False, 'failed to save and reload {tag_og} using string {tag_str}')
+            # end with subTest
+        # end for tag_name in tag_names
+    # end test_save_load_tag
+# end TestFlatTags
 
-# main
+class TestHierTags(TestRelationalTags):
+    """General hierarchical relational tags tests.
+    """
+    
+    hier_tag_names: Dict[str, Union[List[str],str]]
+    
+    @classmethod
+    def setUpClass(cls):
+        """Init test class.
+        """
+        
+        super().setUpClass()
+        
+        cls.hier_tag_names = {
+            'fruit': ['apple','banana','cinnamon','donut','orange'],
+            'animal': ['elephant','fish','giraffe','hyena'],
+            'color': ['red','green','blue','yellow','orange','indigo']
+        }
+        cls.log.info(cls.hier_tag_names)
+    # end setUpClass
+    
+    def setUp(self):
+        super().setUp()
+        cls = type(self)
+        
+        cls.log.info('rebuild tags hierarchy')
+        rt.clear()
+        rt.load(tags=cls.hier_tag_names, tag_tag_type=RelationalTagConnection.TO_TAG_CHILD)
+    # end setUp
+    
+    def test_load(self):
+        cls = type(self)
+        
+        all_tag_names:List[str] = list(cls.hier_tag_names.keys())
+        for vtags in cls.hier_tag_names.values():
+            all_tag_names.extend(vtags)
+        
+        self.assertEqual(len(rt.all_tags), len(set(all_tag_names)))
+        
+        for name in cls.hier_tag_names.keys():
+            with self.subTest(name=name):
+                self.assertEqual(rt.get(name, new_if_missing=False).name, name)
+            
+            for target in cls.hier_tag_names[name]:
+                with self.subTest(source=name, target=target):
+                    self.assertTrue(
+                        rt.get(target) in rt.get(name, new_if_missing=False).connections
+                    )
+            # end for target
+        # end for name
+    # end test_load
+    
+    def test_save_load_tag(self):
+        # save and load every tag
+        tags = list(rt.all_tags.values())
+        for tag in tags:
+            with self.subTest(tag=tag):
+                tag_str = str(tag)
+                tag.delete_self()
+                tag_load = RelationalTag.load_tag(tag_str)
+                
+                self.assertEqual(
+                    tag, 
+                    tag_load,
+                    f'failed to save and reload {tag} with string {tag_str}'
+                )
+            # end with subTest
+        # end for rtag in rtags
+    # end test_save_load_tag
+# end TestHierTags
+
+class TestRelationalEntities(TestRelationalTags):
+    """Test usage of relational entities that subclass `RelationalEntity`.
+    """
+    
+    entities: List[Any]
+    frent: FalseRelEntity
+    trent: TestRelEntity
+    
+    root: RelationalTag
+    leaf: RelationalTag
+    
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        
+        cls.frent = FalseRelEntity('frent-1')
+        cls.trent = TestRelEntity('trent-1')
+        cls.entities = [
+            cls.frent,
+            cls.trent
+        ]
+    # end setUpClass
+    
+    def setUp(self):
+        cls = type(self)
+        
+        # reset tags
+        rt.clear()
+        
+        # construct a particular graph
+        cls.root = rt.new('root')
+        cls.leaf = rt.new('leaf')
+        
+        cls.root.connect_to(cls.leaf)
+        for entity in cls.entities:
+            cls.leaf.connect_to(entity)
+    # end setUp
+    
+    def test_save_load(self):
+        cls = type(self)
+        
+        rents_orig = rt.get_tagged_entities()
+        log.debug('original tagged entities:\n{}\n'.format('\n'.join(
+            [str(rent_orig) for rent_orig,rent_conns_orig in rents_orig]
+        )))
+        
+        log.debug('save rel tag system w rel entities')
+        rt_json = rt.save_json()
+        log.debug('rt.save_json => {}:{}'.format(type(rt_json), rt_json))
+        
+        # clear relational tags system for reload
+        rt.clear()
+        
+        log.debug('load rel tag system w rel entities')
+        rt.load_json(rt_json, get_if_exists=True, skip_bad_conns=True)
+        rents_load = rt.get_tagged_entities()
+        log.debug('loaded tagged entities:\n{}\n'.format('\n'.join(
+            [str(rent_load) for rent_load,rent_conns_load in rents_load]
+        )))
+        
+        self.assertFalse(
+            cls.frent in RelationalTag._tagged_entities,
+            f'false relational entity {cls.frent} somehow loaded'
+        )
+        self.assertTrue(
+            cls.trent in RelationalTag._tagged_entities,
+            f'true relational entity {cls.trent} not loaded'
+        )
+        self.assertTrue(
+            rt.get('leaf') in RelationalTag._tagged_entities[cls.trent],
+            f'failed to find tag leaf in connections for entity {RelationalTag._tagged_entities[cls.trent]}'
+        )
+    # end test_save_load
+# end TestRelationalEntities
 
 if __name__ == '__main__':
-    main()
-# end if main
+    log.info('start relational tags python tests v{} for v{}'.format(
+        VERSION,
+        rt.VERSION
+    ))
+    
+    unittest.main()
