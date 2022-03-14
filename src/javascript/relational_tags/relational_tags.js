@@ -166,7 +166,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.3'
+RelationalTag.VERSION = '0.1.4'
 
 // RelationalTag static variables
 
@@ -303,7 +303,12 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 	if (source_is_connection) {
 		console.log(`debug rtag.disconnect called w connection; converting to source`)
 		let conn = tag_or_connection
-		return RelationalTag.disconnect(conn.source, conn.target)
+		if (conn.source instanceof RelationalTag) {
+			return RelationalTag.disconnect(conn.source, conn.target)
+		}
+		else {
+			return RelationalTag.disconnect(conn.target, conn.source)
+		}
 	}
 	else {
 		// remove connection from source
@@ -324,6 +329,8 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 		}
 	}
 }
+
+// TODO RelationalTag.disconnect_entity
 
 /**
  * Create a new relational tag.
@@ -778,14 +785,19 @@ class RelationalTagConnection {
 	}
 	
 	/**
-	 * Format properties of the connection into a readable one line string. Double quoted for JSON
-	 * compatibility.
+	 * Format properties of the connection into a json compatible array.
+	 * 
+	 * Structure = `[ source , type , target ]`. Tags are stored as their name strings, while entities
+	 * are kept unchanged. The resulting array is then passed as an argument to `JSON.stringify`. Therefore,
+	 * all properties that can be stored in a json representation of the entity will be preserved.
+	 * 
+	 * {@link RelationalTag#toString} is not used for serializing tags because it would case recursion when
+	 * serializing their connections.
 	 * 
 	 * @returns {String}
 	 */ 
 	toString() {
 		let source = this.source instanceof RelationalTag
-			// dont use RT.toString() as it causes recursion
 			? this.source.name
 			: this.source
 		
@@ -793,7 +805,7 @@ class RelationalTagConnection {
 			? this.target.name
 			: this.target
 		
-		return `"${source}=${this.type}=${target}"`
+		return JSON.stringify([source, this.type, target])
 	}
 	
 	/**
