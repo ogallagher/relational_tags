@@ -166,7 +166,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.4'
+RelationalTag.VERSION = '0.1.5'
 
 // RelationalTag static variables
 
@@ -330,7 +330,29 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 	}
 }
 
-// TODO RelationalTag.disconnect_entity
+/**
+ * Disconnect the given `entity` from all tags.
+ * If the entity is already not connected to any tags, this method does nothing.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param entity Entity to disconnect/untag.
+ */
+RelationalTag.disconnect_entity = function(entity) {	
+	if (RelationalTag._tagged_entities.has(entity)) {
+		// disconnect from tags
+		let conns = new Array(...RelationalTag._tagged_entities.get(entity).values())
+		for (let conn of conns) {
+			RelationalTag.disconnect(conn)
+		}
+		
+		// remove from tagged entities
+		RelationalTag._tagged_entities.delete(entity)
+	}
+	else {
+		console.log(`info ${entity} already not tagged`)
+	}
+}
 
 /**
  * Create a new relational tag.

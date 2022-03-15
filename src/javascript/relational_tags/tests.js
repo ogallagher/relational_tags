@@ -309,6 +309,13 @@ describe('relational_tags', function() {
 		let tag_names = ['color', 'red', 'yellow']
 		let apple = 'apple'
 		let banana = 'banana'
+		let object = {
+			name: 'object',
+			fruit: [apple, banana],
+			method: function(message) {
+				console.log(`${this.name} says ${message}`)
+			}
+		}
 		
 		describe('instance.connect_to, class.connect', function() {
 			it('connects tags', function() {
@@ -431,6 +438,49 @@ describe('relational_tags', function() {
 					!yellow.connections.has(banana) && 
 					!RelationalTag._tagged_entities.get(banana).has(yellow),
 					'yellow-banana and banana-yellow disconnected'
+				)
+			})
+		})
+		
+		describe('class.disconnect_entity', function() {
+			before(function() {
+				rt.clear()
+				rt.load(tag_names)
+			})
+			
+			it('disconnects various entities', function() {
+				rt.get('red').connect_to(apple)
+				rt.connect(rt.get('color'), object)
+				RelationalTag.connect(RelationalTag.get('yellow'), object)
+				
+				assert.ok(
+					RelationalTag._tagged_entities.has(apple),  
+					`${apple} not found in tagged entities: `
+				)
+				assert.ok(
+					RelationalTag._tagged_entities.has(object), 
+					`${object} not found in tagged entities`
+				)
+				
+				// disconnect apple and object
+				rt.disconnect_entity(apple)
+				assert.ok(
+					!RelationalTag._tagged_entities.has(apple),
+					`${apple} found after disconnect`
+				)
+				assert.ok(
+					!rt.get('red').connections.has(apple),
+					`${apple} connected to red after disconnect`
+				)
+				
+				rt.disconnect_entity(object)
+				assert.ok(
+					!RelationalTag._tagged_entities.has(object),
+					`${object} found after disconnect`
+				)
+				assert.ok(
+					!rt.get('color').connections.has(object),
+					`${object} connected to color after disconnect`
 				)
 			})
 		})
