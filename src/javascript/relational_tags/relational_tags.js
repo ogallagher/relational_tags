@@ -166,7 +166,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.6'
+RelationalTag.VERSION = '0.1.9'
 
 // RelationalTag static variables
 

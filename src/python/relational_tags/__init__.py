@@ -15,7 +15,7 @@ import json
 
 # module vars
 
-VERSION:str = '0.0.9'
+VERSION:str = '0.0.10'
 """Package version.
 """
 

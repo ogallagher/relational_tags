@@ -73,7 +73,7 @@ rt.connect(rt.get('red'), glove)
 rt.get('orange').connect_to(ball)
 
 print(glove in rt.get('red').connections)
-// true; RelationalTag.connections is a Dict where each key is a target
+# true; RelationalTag.connections is a Dict where each key is a target
 
 # TODO use graph distance to measure likeness
 
