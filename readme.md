@@ -6,10 +6,20 @@ This repository contains implementations of relational tags organization in vari
 
 # Installation
 
-Available on [test.pypi.org](https://test.pypi.org/project/relational-tags-owengall/) as an installable package.
+## Python
+
+Available at [test.pypi.org](https://test.pypi.org/project/relational-tags-owengall/) as an installable package.
 
 ```
 pip install -i https://test.pypi.org/simple relational-tags-owengall
+```
+
+## Javascript
+
+Available at [npmjs.com](https://www.npmjs.com/package/relational_tags) as an installable package.
+
+```
+npm install relational_tags
 ```
 
 # Showcase
@@ -18,7 +28,113 @@ pip install -i https://test.pypi.org/simple relational-tags-owengall
 
 ![examples/python/rt_webapp](https://user-images.githubusercontent.com/17031438/132413493-dd1464ed-8115-465e-bdf1-847d72a83f96.mp4)
 
-# Why not?
+# Generated Documentation
+
+## Python
+
+Generate docs at `docs/pdocs/` using the `src/python/pdocs.sh` script, or something similar.
+
+## Javascript
+
+Generate docs at `docs/jsdocs/` using the `src/javascript/jsdocs.sh` script, or something similar.
+
+# Usage
+
+The API aims to be as consistent across languages as possible. Below are scripts that generate equivalent
+relational tagging systems in each language. For more examples, see code samples in `examples/` and test cases in `tests/` (though be aware that the tests often circumvent the public API and use hidden members, or don't take advantage of things that were added to the library later).
+
+```python
+import relational_tags as rt
+from relational_tags import RelationalTagConnection
+
+# initial planned tags hierarchy
+rt.load(
+    {
+        'color': ['red', 'orange', 'yellow', 'green', 'blue'],
+        'fruit': ['apple', 'banana', 'cherry', 'orange']
+    },
+    RelationalTagConnection.TYPE_TO_TAG_CHILD
+)
+
+# create some things
+
+class Thing:
+    def __init__(self, name: str):
+        self.name = name
+# end Thing
+
+glove = Thing('glove')
+ball = Thing('ball')
+
+# tag them
+
+rt.connect(rt.get('red'), glove)
+
+rt.get('orange').connect_to(ball)
+
+print(glove in rt.get('red').connections)
+// true; RelationalTag.connections is a Dict where each key is a target
+
+# TODO use graph distance to measure likeness
+
+# TODO use search to find entities by tag
+
+# TODO save and load via json
+```
+
+```javascript
+const rt = require('relational_tags')
+const RelationalTagConnection = rt.RelationalTagConnection
+
+// initial planned tags hierarchy
+rt.load(
+    {
+        color: ['red', 'orange', 'yellow', 'green', 'blue'],
+        fruit: ['apple', 'banana', 'cherry', 'orange']
+    },
+    RelationalTagConnection.TYPE_TO_TAG_CHILD
+)
+
+// create some things
+
+class Thing {
+    constructor(name) {
+        this.name = name
+    }
+}
+
+glove = new Thing('glove')
+ball = new Thing('ball')
+
+// tag them
+
+rt.connect(rt.get('red'), glove)
+
+rt.get('orange').connect_to(ball)
+
+console.log(rt.get('red').connections.has(glove))
+// true; RelationalTag.connections is a Map where each key is a target
+
+// use graph distance to measure likeness
+
+console.log(rt.graph_distance(rt.get('orange'), ball))
+// 1    # orange-ball
+
+console.log(rt.graph_distance(rt.get('color'), ball))
+// 2    # color-orange-ball
+
+console.log(rt.graph_distance(rt.get('fruit'), ball))
+// 2    # fruit-orange-ball
+
+console.log(rt.graph_distance(glove, ball))
+// 4    # glove-red-color-orange-ball
+
+// TODO use search to find entities by tag
+
+// TODO save and load via json
+```
+
+# Theory
 
 Let's combine the best of two disparate organizational systems: tree hierarchy, and tags.
 
@@ -40,7 +156,7 @@ apple, banana, cat, dandelion, grass,
 mouse, school bus, strawberry, Rudolph
 ```
 
-# Tree example
+## Tree example
 
 ```
 - alive
@@ -63,7 +179,7 @@ mouse, school bus, strawberry, Rudolph
 
 Note, for example, that I didn’t put `school bus` in `yellow` because it’s only allowed to have one parent node. A filesystem typically gets around this with aliases/symbolic links/shortcuts/etc.
 
-# Tags example
+## Tags example
 
 ```
 - apple - fruit, plant, alive, red, sweet
@@ -79,7 +195,7 @@ Note, for example, that I didn’t put `school bus` in `yellow` because it’s o
 
 Note here that adding new entities to this system becomes tedious, and entity-tag assignments are easily forgotten.
 
-# Relational tags example
+## Relational tags example
 
 **Tag relationships**
 

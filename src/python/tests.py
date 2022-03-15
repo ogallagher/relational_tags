@@ -1,5 +1,6 @@
 # Owen Gallagher
 # 13 June 2021
+# run all with: python -m unittest tests
 
 # imports
 
@@ -80,7 +81,7 @@ log:logging.Logger = logging.getLogger('tests')
 log.setLevel(logging.DEBUG)
 
 handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter(fmt='{name}.{levelname}.{lineno}: {msg}', style='{')
+formatter = logging.Formatter(fmt='{levelname}\t{name}.{lineno}: {msg}', style='{')
 handler.setFormatter(formatter)
 log.addHandler(handler)
 

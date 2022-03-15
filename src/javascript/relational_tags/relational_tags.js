@@ -166,7 +166,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.5'
+RelationalTag.VERSION = '0.1.6'
 
 // RelationalTag static variables
 
@@ -703,6 +703,20 @@ RelationalTag._graph_path = function(a, b, visits) {
  */
 RelationalTag.graph_distance = function(a, b) {
 	return RelationalTag.graph_path(a, b).length - 1
+}
+
+/**
+ * Find all entities directly and indirectly connected to this tag, in graph distance order ascending.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {(RelationalTag|String)} tag
+ * @param {String} include_tags_by_direction
+ * 
+ * @returns {Array}
+ */
+RelationalTag.search_by_tag = function(tag, include_tags_by_direction) {
+	throw new NotImplementedError('search_by_tag not yet implemented')
 }
 
 /**

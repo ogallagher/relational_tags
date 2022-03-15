@@ -21,7 +21,7 @@ VERSION:str = '0.0.9'
 
 log:logging.Logger = logging.getLogger('rt')
 handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter(fmt='{name}.{levelname}.{lineno}: {msg}', style='{')
+formatter = logging.Formatter(fmt='{levelname}\t{name}.{lineno}: {msg}', style='{')
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
@@ -645,7 +645,7 @@ class RelationalTag:
     # end from_string
     
     @classmethod
-    def save_tag(cls, tag:Union[str,'RelationalTag']) -> str:
+    def save_tag(cls, tag:Union[str, 'RelationalTag']) -> str:
         """Export the given tag or tag of given name as a string."""
         
         # convert to RelationalTag
@@ -655,6 +655,32 @@ class RelationalTag:
         # export
         return str(tag)
     # end save_tag
+    
+    @classmethod
+    def search_by_tag(cls, tag:Union[str, 'RelationalTag'], include_tags_by_direction:int) -> List[Any]:
+        """Find all entities directly and indirectly connected to this tag, in graph distance order ascending.
+        
+        :param tag:
+        :param include_tags_by_direction:
+        """
+        
+        raise NotImplementedError('search_by_tag not yet implemented')
+    # end search_by_tag
+    
+    @classmethod
+    def known(cls, node):
+        raise NotImplementedError('known not yet implemented')
+    # end known
+    
+    @classmethod
+    def graph_path(cls, a, b):
+        raise NotImplementedError('graph_path not yet implemented')
+    # end graph_path
+    
+    @classmethod
+    def graph_distance(cls, a, b):
+        raise NotImplementedError('graph_distance not yet implemented')
+    # end graph_distance
     
     def __init__(self, name:str):
         """RelationalTag constructor.
@@ -1094,6 +1120,12 @@ load_tag = RelationalTag.load_tag
 save_tag = RelationalTag.save_tag
 """Alias for `RelationalTag.save_tag`"""
 
+search_by_tag = RelationalTag.search_by_tag
+"""Alias for `RelationalTag.search_by_tag`"""
+
+known = RelationalTag.known
+"""Alias for `RelationalTag.known`"""
+
 # exports
 
 __all__ = [
@@ -1119,5 +1151,7 @@ __all__ = [
     'load_json',
     'save_json',
     'load_tag',
-    'save_tag'
+    'save_tag',
+    'search_by_tag',
+    'known'
 ]
