@@ -75,7 +75,7 @@ class TestRelEntity(FalseRelEntity):
 
 # module vars
 
-VERSION:str = '0.0.9'
+VERSION:str = '0.0.11'
 
 log:logging.Logger = logging.getLogger('tests')
 log.setLevel(logging.DEBUG)
@@ -423,6 +423,64 @@ class TestHierTags(TestRelationalTags):
             # end with subTest
         # end for rtag in rtags
     # end test_save_load_tag
+    
+    def test_known(self):
+        log.debug('check rt.known for child tags')
+        apple = rt.get('apple')
+        self.assertTrue(rt.known(apple), f'{apple} not in {rt.all_tags.keys()}')
+        self.assertTrue(rt.known(RelationalTag.get('elephant')))
+        self.assertTrue(RelationalTag.known(rt.get('red')))
+        
+        log.debug('check rt.known for parent tags')
+        self.assertTrue(rt.known(rt.get('fruit')))
+        self.assertTrue(rt.known(RelationalTag.get('animal')))
+        self.assertTrue(RelationalTag.known(rt.get('color')))
+        
+        log.debug('check rt.known for entities')
+        ent = TestEntity()
+        self.assertFalse(rt.known(ent), f'{ent} found before tagging')
+        rt.get('orange').connect_to(ent)
+        self.assertTrue(rt.known(ent), f'{ent} not found after tagging')
+    # end test_known
+    
+    def test_graph_path_distance(self):
+        # tag to entity
+        ent = TestEntity(name='leaf')
+        rt.connect(rt.get('green'), ent)
+        self.assertEqual(rt.graph_path(ent, rt.get('green')), [ent, rt.get('green')])
+        self.assertEqual(
+            rt.graph_path(ent, rt.get('green'))[0], 
+            rt.graph_path(rt.get('green'), ent)[-1],
+            'graph path not equal to reversed graph path'
+        )
+        
+        # tag to self
+        self.assertEqual(
+            rt.graph_path(rt.get('apple')), 
+            [rt.get('apple')],
+            'tag path to self not equal to [self]'
+        )
+        self.assertEqual(0, rt.graph_distance(rt.get('apple')))
+        
+        # tag to tag
+        self.assertEqual(
+            rt.graph_path(rt.get('color'), rt.get('orange')),
+            [rt.get('color'), rt.get('orange')]
+        )
+        self.assertEqual(1, rt.graph_distance(rt.get('color'), rt.get('orange')))
+        
+        # long path
+        self.assertEqual(
+            # banana-fruit-orange-color-blue = 5 nodes
+            len(rt.graph_path(rt.get('banana'), rt.get('blue'))),
+            5
+        )
+        self.assertEqual(
+            4, 
+            # banana-fruit-orange-color-blue = 4 edges
+            rt.graph_distance(rt.get('banana'), rt.get('blue'))
+        )
+    # end test_graph_path
 # end TestHierTags
 
 class TestRelationalEntities(TestRelationalTags):

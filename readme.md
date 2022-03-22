@@ -53,7 +53,7 @@ rt.load(
         'color': ['red', 'orange', 'yellow', 'green', 'blue'],
         'fruit': ['apple', 'banana', 'cherry', 'orange']
     },
-    RelationalTagConnection.TYPE_TO_TAG_CHILD
+    RelationalTagConnection.TO_TAG_CHILD
 )
 
 # create some things
@@ -73,9 +73,21 @@ rt.connect(rt.get('red'), glove)
 rt.get('orange').connect_to(ball)
 
 print(glove in rt.get('red').connections)
-# true; RelationalTag.connections is a Dict where each key is a target
+# True; RelationalTag.connections is a Dict where each key is a target
 
-# TODO use graph distance to measure likeness
+# use graph distance to measure likeness
+
+print(rt.graph_distance(rt.get('orange'), ball))
+# 1    # orange-ball
+
+print(rt.graph_distance(rt.get('color'), ball))
+# 2    # color-orange-ball
+
+print(rt.graph_distance(rt.get('fruit'), ball))
+# 2    # fruit-orange-ball
+
+print(rt.graph_distance(glove, ball))
+# 4    # glove-red-color-orange-ball
 
 # TODO use search to find entities by tag
 

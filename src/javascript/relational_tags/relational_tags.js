@@ -589,6 +589,8 @@ RelationalTag.load = function(tags, tag_tag_type) {
  * 
  * @memberOf RelationalTag
  * 
+ * @param {{RelationalTag|Object}} The tag or entity to check.
+ * 
  * @returns {Boolean}
  */
 RelationalTag.known = function(node) {
@@ -598,8 +600,10 @@ RelationalTag.known = function(node) {
 }
 
 /**
- * Find the shortest path between two nodes in the relational tags graph. Connections are analagous to edges
- * and tags and entities are analagous to nodes. Edge direction (connection type) is not considered.
+ * Find the shortest path between two nodes in the relational tags graph. 
+ * 
+ * Connections are analagous to edges and tags and entities are analagous to nodes. Edge direction 
+ * (connection type) is not considered.
  * 
  * Implemented using breadth first search, starting from a.
  * 

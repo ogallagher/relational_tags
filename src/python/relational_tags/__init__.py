@@ -6,7 +6,7 @@
 
 # imports
 
-from typing import List, Dict, Union, Any, Tuple, Type
+from typing import List, Dict, Union, Any, Tuple, Type, Set
 import sys
 import traceback
 import logging
@@ -15,7 +15,7 @@ import json
 
 # module vars
 
-VERSION:str = '0.0.10'
+VERSION:str = '0.0.11'
 """Package version.
 """
 
@@ -646,7 +646,8 @@ class RelationalTag:
     
     @classmethod
     def save_tag(cls, tag:Union[str, 'RelationalTag']) -> str:
-        """Export the given tag or tag of given name as a string."""
+        """Export the given tag or tag of given name as a string.
+        """
         
         # convert to RelationalTag
         if isinstance(tag,str):
@@ -668,18 +669,121 @@ class RelationalTag:
     # end search_by_tag
     
     @classmethod
-    def known(cls, node):
-        raise NotImplementedError('known not yet implemented')
+    def known(cls, node:Union['RelationalTag',Any]) -> bool:
+        """Whether the given tag or entity is present in the relational tags system/graph.
+        
+        :param node: The tag or entity to check.
+        """
+        
+        if isinstance(node, RelationalTag):
+            return node.name in cls.all_tags
+        
+        else:
+            return cls._entity_to_hashable(node) in cls._tagged_entities
     # end known
     
     @classmethod
-    def graph_path(cls, a, b):
-        raise NotImplementedError('graph_path not yet implemented')
+    def graph_path(cls, a:Union['RelationalTag',Any], b:Union['RelationalTag',Any]=None) -> List[Union['RelationalTag', Any]]:
+        """Find the shortest path between two nodes in the relational tags graph.
+        
+        Connections are analagous to edges and tags and entities are analagous to nodes. Edge direction
+        (connection type) is not considered.
+        
+        :param a:
+        :param b:
+        """
+        
+        if a == b or b is None:
+            if cls.known(a):
+                # circular path to oneself is length=1
+                return [a]
+            else:
+                # node not in graph; empty path
+                return []
+        
+        elif cls.known(a) and cls.known(b):
+            path = cls._graph_path(a, b, set())
+            
+            if path is None:
+                # nodes not connected; empty path
+                return []
+            else:
+                # nodes in graph and connected; path exists
+                return path
+            
+        else:
+            # nodes not in graph; empty path
+            return []
     # end graph_path
     
     @classmethod
-    def graph_distance(cls, a, b):
-        raise NotImplementedError('graph_distance not yet implemented')
+    def _graph_path(cls, a, b, visits:Set) -> List:
+        """Helper method for `RelationalTag.graph_path`.
+        
+        Assumes `a` and `b` are both in the graph.
+        """
+        
+        # add current node to visits
+        visits.add(a)
+        
+        connections:List[Union[RelationalTag, Any]]
+        if isinstance(a, RelationalTag):
+            connections = list(a.connections)
+        else:
+            connections = list(cls._tagged_entities[a])
+    
+        # search outward connections
+        nexts = []
+        for node in connections:
+            if node == b:
+                # return path
+                return [a, node]
+            
+            elif not node in visits:
+                nexts.append(node)
+            # else, skip visited node
+        # end for connections
+            
+        if len(nexts) == 0:
+            # no path found, no more unexplored nodes
+            return None
+        # end nexts empty
+        
+        else:
+            # search next level
+            for next in nexts:
+                path = cls._graph_path(next, b, visits)
+                
+                if path is not None:
+                    # return path
+                    return [a] + path
+                # end path
+            # end for nexts
+            
+            # no path found in further levels
+            return None
+        # end nexts not empty
+    # end _graph_path
+    
+    @classmethod
+    def graph_distance(cls, a:Union['RelationalTag',Any], b:Union['RelationalTag',Any]=None) -> int:
+        """Find the shortest distance between two nodes in the relational tags graph.
+        
+        Calls `RelationalTag.graph_path` and then calculates graph distance as the number of edges:
+        
+        ```
+        num_edges = graph_distance().length - 1
+        ```
+        
+        - `distance == -1` means the nodes are not connected.
+        - `distance == 0` means `a` and `b` are the same node.
+        - `distance > 0` means the nodes are connected.
+        
+        :param a:
+        :param b:
+        """
+        
+        return len(cls.graph_path(a, b)) - 1
     # end graph_distance
     
     def __init__(self, name:str):
@@ -1126,6 +1230,12 @@ search_by_tag = RelationalTag.search_by_tag
 known = RelationalTag.known
 """Alias for `RelationalTag.known`"""
 
+graph_path = RelationalTag.graph_path
+"""Alias for `RelationalTag.graph_path`"""
+
+graph_distance = RelationalTag.graph_distance
+"""Alias for `RelationalTag.graph_distance`"""
+
 # exports
 
 __all__ = [
@@ -1153,5 +1263,7 @@ __all__ = [
     'load_tag',
     'save_tag',
     'search_by_tag',
-    'known'
+    'known',
+    'graph_path',
+    'graph_distance'
 ]
