@@ -15,7 +15,7 @@ import json
 
 # module vars
 
-VERSION:str = '0.0.11'
+VERSION:str = '0.1.0'
 """Package version.
 """
 
@@ -24,6 +24,10 @@ handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter(fmt='{levelname}\t{name}.{lineno}: {msg}', style='{')
 handler.setFormatter(formatter)
 log.addHandler(handler)
+
+Node = Union['RelationalTag', Any]
+"""Alias for `Union[RelationalTag, Any]`, being a tag or an entity.
+"""
 
 # types
 
@@ -300,7 +304,7 @@ class RelationalTag:
     
     # TODO finish RelationalTag.load?
     @classmethod
-    def load(cls, tags:Union[List[Union[str,'RelationalTag']],Dict[str,Union[str,List[str]]]], tag_tag_type:int='RelationalTagConnection.TO_TAG_CHILD') -> List['RelationalTag']:
+    def load(cls, tags:Union[List[Union[str,'RelationalTag']],Dict[str,Union[str,List[str]]]], tag_tag_type:int=None) -> List['RelationalTag']:
         """Load a set of tags, including optional connection info for each.
         
         There are multiple ways to define a relational tags system:
@@ -338,12 +342,14 @@ class RelationalTag:
         
         ## Args
         
-        **tags** Relational tags, either as a list or dict. Entities not supported.
-        
-        **tag_tag_type** Specify what a key-value relationship in a dictionary means. Default
+        :param tags: Relational tags, either as a list or dict. Entities not supported.
+        :param tag_tag_type: Specify what a key-value relationship in a dictionary means. Default
         of `RelationalTagConnection.TO_TAG_CHILD` means the key is the parent of the value. See 
         `RelationalTagConnection._TAG_TAG_TYPES` for possible values.
         """
+        
+        if tag_tag_type is None:
+            tag_tag_type = RelationalTagConnection.TO_TAG_CHILD
         
         if isinstance(tags, List):
             for tag in tags:
@@ -419,7 +425,7 @@ class RelationalTag:
     # end _hashable_to_entity
     
     @classmethod
-    def connect(cls, tag_or_connection:Union['RelationalTag','RelationalTagConnection'], target:Union['RelationalTag',Any]=None, connection_type:int=None) -> 'RelationalTagConnection':
+    def connect(cls, tag_or_connection:Union['RelationalTag','RelationalTagConnection'], target:Node=None, connection_type:int=None) -> 'RelationalTagConnection':
         """Connect a tag with a target.
         """
         
@@ -464,7 +470,7 @@ class RelationalTag:
     # end connect
     
     @classmethod
-    def disconnect(cls, tag_or_connection:Union['RelationalTag','RelationalTagConnection'], target:Union['RelationalTag',Any]=None):
+    def disconnect(cls, tag_or_connection:Union['RelationalTag','RelationalTagConnection'], target:Node=None):
         """Disconnect a tag from a target.
         
         ## Args
@@ -658,18 +664,127 @@ class RelationalTag:
     # end save_tag
     
     @classmethod
-    def search_by_tag(cls, tag:Union[str, 'RelationalTag'], include_tags_by_direction:int) -> List[Any]:
+    def search_entities_by_tag(cls, tag:Union[str, 'RelationalTag'], search_direction:int=None, include_paths:bool=False) -> Union[List[Node],Dict[Node,List[Node]]]:
         """Find all entities directly and indirectly connected to this tag, in graph distance order ascending.
         
-        :param tag:
-        :param include_tags_by_direction:
+        :param tag: The tag or tag name.
+        :param search_direction: Tag-tag connection direction for search. Default of
+        `RelationalTagConnection.TO_TAG_CHILD`, for example, then all entities connected to this tag, as
+        well as all entities connected to descendants of this tag, are returned.
+        :param include_paths: Whether to return as a dictionary mapping entities to their paths from the start
+        tag (`True`) or the return as a list of entities (`False`).
         """
         
-        raise NotImplementedError('search_by_tag not yet implemented')
-    # end search_by_tag
+        if search_direction is None:
+            search_direction = RelationalTagConnection.TO_TAG_CHILD
+        
+        if isinstance(tag, str):
+            tag = cls.get(tag, new_if_missing=False)
+        
+        paths:Dict[Node, List[Node]] = cls._search_descendants(
+            node=tag, 
+            direction=search_direction, 
+            include_entities=True, 
+            include_tags=False
+        )
+        
+        if include_paths:
+            return paths
+            
+        else:
+            return list(paths.keys())
+    # end search_entities_by_tag
     
     @classmethod
-    def known(cls, node:Union['RelationalTag',Any]) -> bool:
+    def _search_descendants(cls, node:Node, direction:int, include_entities:bool=True, include_tags:bool=False, visits:Set[Node]=None, path:List[Node]=None) -> Dict[Node, List[Node]]:
+        """Internal helper method for searching the graph.
+        
+        Uses depth-first search to return the path to each found node from the start node. If the start node is
+        an entity, the result is each of its tags, plus searches starting from each tag connected to the entity, 
+        using the same tag-tag connection search direction as provided originally.
+        
+        :param node: The start tag or entity from which to begin searching.
+        :param direction:
+        :param include_entities: If `True`, each entity found after the start node is its own key in the 
+        result dict.
+        :param include_tags: If `True`, each tag found after the start node is its own key in the result dict.
+        :param path: Path from an original start node to the current node.
+        """
+        
+        if visits is None:
+            visits = set()
+        
+        if path is None:
+            path = [node]
+        
+        if cls.known(node):
+            # add current node to visits
+            visits.add(node)
+            
+            # create results dict for paths to each child
+            results:Dict[Node, List[Node]] = {}
+        
+            if isinstance(node, RelationalTag):
+                for child, conn in node.connections.items():
+                    if child not in visits and (conn.type == direction or conn.type == RelationalTagConnection.TO_ENT):
+                        if isinstance(child, RelationalTag):
+                            child_path:List[Node] = path + [child]
+                            if include_tags:
+                                # add tag as key in res
+                                results[child] = child_path
+                            
+                            # search descendents of each child
+                            child_results:Dict[Node, List[Node]] = cls._search_descendants(
+                                node=child,
+                                direction=direction,
+                                include_entities=include_entities,
+                                include_tags=include_tags,
+                                visits=visits,
+                                path=child_path
+                            )
+                            
+                            # add child results to results
+                            for key,val in child_results.items():
+                                results[key] = val
+                            
+                        elif include_entities:
+                            # add ent as key in res
+                            results[child] = path + [child]
+                            # stop here; don't search tags of an entity
+                    # else, skip
+                # end for children
+            # end if tag
+            
+            else:                
+                # combine searches of all tags
+                for tag in cls._tagged_entities[node]:
+                    # add tag to results
+                    results[tag] = [tag]
+                    
+                    tag_results:Dict[Node, List[Node]] = cls._search_descendants(
+                        node=tag,
+                        direction=direction,
+                        include_entities=include_entities,
+                        include_tags=include_tags,
+                        visits=visits,
+                        path=[tag]
+                    )
+                    
+                    # add tag results to results
+                    for key,val in tag_results.items():
+                        results[key] = val
+            # end else ent
+            
+            return results
+        # end if known
+                
+        else:
+            # not in graph; empty results
+            return {}
+    # end _search_by_tag
+    
+    @classmethod
+    def known(cls, node:Node) -> bool:
         """Whether the given tag or entity is present in the relational tags system/graph.
         
         :param node: The tag or entity to check.
@@ -683,7 +798,7 @@ class RelationalTag:
     # end known
     
     @classmethod
-    def graph_path(cls, a:Union['RelationalTag',Any], b:Union['RelationalTag',Any]=None) -> List[Union['RelationalTag', Any]]:
+    def graph_path(cls, a:Node, b:Node=None) -> List[Node]:
         """Find the shortest path between two nodes in the relational tags graph.
         
         Connections are analagous to edges and tags and entities are analagous to nodes. Edge direction
@@ -717,7 +832,7 @@ class RelationalTag:
     # end graph_path
     
     @classmethod
-    def _graph_path(cls, a, b, visits:Set) -> List:
+    def _graph_path(cls, a, b, visits:Set[Node]) -> List:
         """Helper method for `RelationalTag.graph_path`.
         
         Assumes `a` and `b` are both in the graph.
@@ -726,7 +841,7 @@ class RelationalTag:
         # add current node to visits
         visits.add(a)
         
-        connections:List[Union[RelationalTag, Any]]
+        connections:List[Node]
         if isinstance(a, RelationalTag):
             connections = list(a.connections)
         else:
@@ -766,7 +881,7 @@ class RelationalTag:
     # end _graph_path
     
     @classmethod
-    def graph_distance(cls, a:Union['RelationalTag',Any], b:Union['RelationalTag',Any]=None) -> int:
+    def graph_distance(cls, a:Node, b:Node=None) -> int:
         """Find the shortest distance between two nodes in the relational tags graph.
         
         Calls `RelationalTag.graph_path` and then calculates graph distance as the number of edges:
@@ -830,7 +945,7 @@ class RelationalTag:
         return hash(self.name)
     # end __hash__
     
-    def connect_to(self, other:Union['RelationalTag',Any], connection_type:int=None) -> 'RelationalTagConnection':
+    def connect_to(self, other:Node, connection_type:int=None) -> 'RelationalTagConnection':
         """Connect tag to another tag or entity.
         
         Calls the class method `RelationalTag.connect`.
@@ -843,7 +958,7 @@ class RelationalTag:
         )
     # end connect_to
     
-    def disconnect_to(self, other:Union['RelationalTag',Any]):
+    def disconnect_to(self, other:Node):
         """Disconnect tag from another tag or entity.
         
         Calls the class method `RelationalTag.disconnect`.
@@ -1224,8 +1339,8 @@ load_tag = RelationalTag.load_tag
 save_tag = RelationalTag.save_tag
 """Alias for `RelationalTag.save_tag`"""
 
-search_by_tag = RelationalTag.search_by_tag
-"""Alias for `RelationalTag.search_by_tag`"""
+search_entities_by_tag = RelationalTag.search_entities_by_tag
+"""Alias for `RelationalTag.search_entities_by_tag`"""
 
 known = RelationalTag.known
 """Alias for `RelationalTag.known`"""
@@ -1262,7 +1377,7 @@ __all__ = [
     'save_json',
     'load_tag',
     'save_tag',
-    'search_by_tag',
+    'search_entities_by_tag',
     'known',
     'graph_path',
     'graph_distance'

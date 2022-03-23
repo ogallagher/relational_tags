@@ -89,7 +89,13 @@ print(rt.graph_distance(rt.get('fruit'), ball))
 print(rt.graph_distance(glove, ball))
 # 4    # glove-red-color-orange-ball
 
-# TODO use search to find entities by tag
+# use search to find entities by tag
+rt.search_entities_by_tag('orange')
+# [ball]
+rt.search_entities_by_tag('color')
+# [ball]
+rt.search_entities_by_tag('fruit')
+# [ball]
 
 # TODO save and load via json
 ```

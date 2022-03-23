@@ -481,6 +481,82 @@ class TestHierTags(TestRelationalTags):
             rt.graph_distance(rt.get('banana'), rt.get('blue'))
         )
     # end test_graph_path
+    
+    def test_search(self):
+        # fail if tag not found
+        with self.assertRaises(RelationalTagError):
+            rt.search_entities_by_tag('nothing', include_paths=False)
+        
+        def format_path(path:Dict):
+            return '\n'.join(
+                f'{key.name if isinstance(key, RelationalTag) else key}: ' + '-'.join([
+                    node.name if isinstance(node, RelationalTag)
+                    else str(node)
+                    for node in value
+                ])
+                for key,value in path.items()
+            )
+        
+        # add entities
+        leaf = 'leaf'
+        rt.connect(rt.get('green'), leaf)
+        rt.connect(RelationalTag.get('apple'), leaf)
+        rt.get('banana').connect_to(leaf)
+        rt.connect(rt.get('orange'), leaf)
+        
+        # find leaf by fruit
+        apple_leaf = rt.search_entities_by_tag('apple', include_paths=True)
+        log.debug(f'apple entities:\n{format_path(apple_leaf)}')
+        self.assertTrue(leaf in apple_leaf)
+        self.assertEqual(apple_leaf[leaf], [rt.get('apple'), leaf])
+        self.assertEqual(set(apple_leaf.keys()), set(rt.search_entities_by_tag('apple', include_paths=False)))
+        
+        fruit_leaf = rt.search_entities_by_tag(rt.get('fruit'), include_paths=True)
+        log.debug(f'fruit entities:\n{format_path(fruit_leaf)}')
+        self.assertTrue(leaf in fruit_leaf)
+        self.assertEqual(len(fruit_leaf[leaf]), 3)
+        self.assertEqual(fruit_leaf[leaf][0], rt.get('fruit'))
+        self.assertEqual(fruit_leaf[leaf][2], leaf)
+        
+        # find leaf by color
+        color_leaf = rt.search_entities_by_tag(rt.get('color'), include_paths=True)
+        log.debug(f'color entities:\n{format_path(color_leaf)}')
+        self.assertTrue(leaf in color_leaf)
+        self.assertEqual(len(color_leaf[leaf]), 3)
+        self.assertEqual(color_leaf[leaf][0], rt.get('color'))
+        self.assertEqual(color_leaf[leaf][2], leaf)
+        
+        # find ancestor tags of leaf
+        leaf_tags = RelationalTag._search_descendants(
+            node='leaf', 
+            direction=RelationalTagConnection.TO_TAG_PARENT,
+            include_entities=False,
+            include_tags=True
+        )
+        log.debug(f'leaf tags:\n{format_path(leaf_tags)}')
+        for tag in RelationalTag._tagged_entities[leaf]:
+            self.assertTrue(tag in leaf_tags, f'{tag.name} not in leaf tags')
+        
+        self.assertTrue(rt.get('fruit') in leaf_tags)
+        self.assertTrue(rt.get('color') in leaf_tags)
+        self.assertTrue(rt.get('animal') not in leaf_tags)
+        
+        # find descendant tags of fruit
+        navel = rt.new('navel')
+        rt.connect(navel, rt.get('orange'), RelationalTagConnection.TO_TAG_PARENT)
+        
+        fruit_tags = RelationalTag._search_descendants(
+            node=rt.get('fruit'),
+            direction=RelationalTagConnection.TO_TAG_CHILD,
+            include_entities=False,
+            include_tags=True
+        )
+        log.debug(f'fruit tags:\n{format_path(fruit_tags)}')
+        for tag in rt.get('fruit').connections:
+            self.assertTrue(tag in fruit_tags, f'{tag.name} not in fruit tags')
+        
+        self.assertTrue(navel in fruit_tags)
+    # end test_search
 # end TestHierTags
 
 class TestRelationalEntities(TestRelationalTags):
