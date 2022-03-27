@@ -136,7 +136,7 @@ class RelationalTag {
 	 * @returns {String}
 	 */
 	toString() {
-		let connections = Object.values(this.connections)
+		let connections = new Array(...this.connections.values())
 		let connections_str = new Array(connections.length)
 		
 		for (let c=0; c < connections.length; c++) {
@@ -166,7 +166,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.9'
+RelationalTag.VERSION = '0.1.10'
 
 // RelationalTag static variables
 
@@ -581,7 +581,7 @@ RelationalTag.load = function(tags, tag_tag_type) {
 		)
 	}
 	
-	return Object.values(RelationalTag.all_tags)
+	return new Array(...RelationalTag.all_tags.values())
 }
 
 /**
@@ -710,18 +710,154 @@ RelationalTag.graph_distance = function(a, b) {
 }
 
 /**
- * Find all entities directly and indirectly connected to this tag, in graph distance order ascending.
+ * Find all entities directly and indirectly connected to this tag.
  * 
  * @memberOf RelationalTag
  * 
- * @param {(RelationalTag|String)} tag
- * @param {String} include_tags_by_direction
+ * @param {(RelationalTag|String)} tag The tag or tag name.
+ * @param {String} search_direction Tag-tag connection direction for search. If default of
+ * `RelationalTagConnection.TYPE_TO_TAG_CHILD`, for example, then all entities connected to this tag,
+ * as well as all entities connected to descendants (instead of ancestors) of this tag, are returned.
+ * @param {Boolean} include_paths Whether to return as a dictionary mapping entities to their paths from
+ * the start tag (`true`) or return as a list of entities (`false`).
  * 
- * @returns {Array}
+ * @returns {(Array|Map)}
  */
-RelationalTag.search_by_tag = function(tag, include_tags_by_direction) {
-	throw new NotImplementedError('search_by_tag not yet implemented')
+RelationalTag.search_entities_by_tag = function(tag, search_direction, include_paths) {
+	// search direction default TO_TAG_CHILD
+	search_direction = search_direction === undefined 
+		? RelationalTagConnection.TYPE_TO_TAG_CHILD 
+		: search_direction
+	
+	if (typeof tag == 'string' || tag instanceof String) {
+		tag = RelationalTag.get(tag, false)
+	}
+	
+	paths = RelationalTag._search_descendants(
+		tag,
+		search_direction,
+		true,				// include_entities
+		false				// include_tags
+	)
+	
+	if (include_paths) {
+		return paths
+	}
+	else {
+		return new Array(...paths.keys())
+	}
 }
+
+/**
+ * Internal helper method for searching the graph.
+ * 
+ * Uses depth-first search to return the path to each node from the start node. If the start node is 
+ * an entity, the result is each of its tags, plus searches starting from each tag connected to the
+ * entity, using the same tag-tag connection search direction as provided originally.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {(RelationalTag|Object)} node Start tag or entity from which to begin searching.
+ * @param {Number} direction Tag-tag connection direction (ex. `TO_PARENT`, `TO_CHILD`).
+ * @param {Boolean} include_entities If `true`, each entity found after the start node is its own key
+ * in the result map.
+ * @param {Boolean} include_tags If `true`, each tag found after the start node is its own key in the
+ * result map.
+ * @param {Set} visits paramDescription
+ * @param {Array} path Path from an original start node to the current node.
+ * 
+ * @returns {Map} Map of search results, each node as the key and the corresponding path as the value.
+ */
+RelationalTag._search_descendants = function(node, direction, include_entities, include_tags, visits, path) {
+	// include entities default true
+	include_entities = (include_entities === undefined) ? true : include_entities
+	// include tags default false
+	include_tags = (include_tags === undefined) ? false : include_tags
+	
+	// visits default empty set
+	if (visits === undefined) {
+		visits = new Set()
+	}
+	
+	// path default single node
+	if (path === undefined) {
+		path = [node]
+	}
+	
+	if (RelationalTag.known(node)) {
+		// add current node to visits
+		visits.add(node)
+		
+		// create results map for paths to each child
+		let results = new Map()
+		
+		if (node instanceof RelationalTag) {
+			// is tag
+			for (let child of node.connections.keys()) {
+				let conn = node.connections.get(child)
+				
+				if (!visits.has(child) && (conn.type == direction || conn.type == RelationalTagConnection.TYPE_TO_ENT)) {
+					if (child instanceof RelationalTag) {
+						child_path = path.concat([child])
+						if (include_tags) {
+							// add tag as key in res
+							results.set(child, child_path)
+						}
+						
+						// search descendants of each child
+						let child_results = RelationalTag._search_descendants(
+							child,
+							direction,
+							include_entities,
+							include_tags,
+							visits,
+							child_path
+						)
+						
+						// add child results to results
+						for (let key of child_results.keys()) {
+							results.set(key, child_results.get(key))
+						}
+					}
+					else if (include_entities) {
+						// add ent as key in res
+						results.set(child, path.concat([child]))
+						// stop here; don't search tags of an entity
+					}
+				}
+				// else, skip
+			}
+		}
+		else {
+			// is entity
+			// combine searches of all tags
+			for (let tag of RelationalTag._tagged_entities.get(node).keys()) {
+				// add tag to results
+				results.set(tag, [tag])
+				
+				let tag_results = RelationalTag._search_descendants(
+					tag,
+					direction,
+					include_entities,
+					include_tags,
+					visits,
+					[tag]
+				)
+				
+				// add tag results to results
+				for (let key of tag_results.keys()) {
+					results.set(key, tag_results.get(key))
+				}
+			}
+		}
+		
+		return results
+	}
+	else {
+		// not in graph; empty results
+		return new Map()
+	}
+} 
 
 /**
  * Class for all exceptions/errors specific to relational tags.

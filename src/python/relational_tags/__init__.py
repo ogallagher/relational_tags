@@ -665,12 +665,12 @@ class RelationalTag:
     
     @classmethod
     def search_entities_by_tag(cls, tag:Union[str, 'RelationalTag'], search_direction:int=None, include_paths:bool=False) -> Union[List[Node],Dict[Node,List[Node]]]:
-        """Find all entities directly and indirectly connected to this tag, in graph distance order ascending.
+        """Find all entities directly and indirectly connected to this tag.
         
         :param tag: The tag or tag name.
-        :param search_direction: Tag-tag connection direction for search. Default of
+        :param search_direction: Tag-tag connection direction for search. If default of
         `RelationalTagConnection.TO_TAG_CHILD`, for example, then all entities connected to this tag, as
-        well as all entities connected to descendants of this tag, are returned.
+        well as all entities connected to descendants (instead of ancestors) of this tag, are returned.
         :param include_paths: Whether to return as a dictionary mapping entities to their paths from the start
         tag (`True`) or the return as a list of entities (`False`).
         """

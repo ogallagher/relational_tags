@@ -51,6 +51,24 @@ describe('relational_tags', function() {
 			}
 		}
 		
+		// define Set equality
+		Set.prototype.set_equals = function(other) {
+			if (other instanceof Set && this.size == other.size) {
+				for (let value of this) {
+					if (!other.has(value)) {
+						console.log(`warning ${value} not in ${other}`)
+						return false
+					}
+				}
+				
+				return true
+			}
+			else {
+				console.log(`warning ${this.size} != ${other instanceof Set ? other.size : typeof other}`)
+				return false
+			}
+		}
+		
 		temp_logger.imports_promise.then(done)
 	})
 	
@@ -181,7 +199,7 @@ describe('relational_tags', function() {
 					name: 'RelationalTagException',
 					type: RelationalTagException.TYPE_COLLISION
 				},
-				'collision exception on new(name, get_if_exists=false)'
+				'collision exception not thrown on new(name, get_if_exists=false)'
 			)
 		})
 	})
@@ -489,17 +507,43 @@ describe('relational_tags', function() {
 	describe('graph traversal', function() {
 		let apple = 'apple'
 		let rock = 'rock'
+		let leaf = 'leaf'
+		
+		function format_search(search) {
+			let paths = []
+			
+			for (let node of search.keys()) {
+				let nodes = search.get(node).map(function(n) {
+					return n instanceof RelationalTag
+						? n.name
+						: n.toString()
+				})
+				
+				paths.push(
+					`${node instanceof RelationalTag ? node.name : node.toString()} => [${nodes.join(',')}]`
+				)
+			}
+			
+			return paths.join('\n')
+		}
 		
 		before(function() {
 			console.log('debug reset tags')
 			rt.clear()
 			
 			rt.load({
-				'fruit': [],
-				'organic': ['fruit']
+				'fruit': ['banana', 'cinnamon', 'donut', 'orange'],
+				'organic': ['fruit', 'animal'],
+				'color': ['red', 'green', 'blue', 'yellow', 'orange'],
+				'animal': ['elephant', 'fish', 'giraffe', 'hyena']
 			})
 			
+			// note apple is an entity here
 			rt.connect(rt.get('fruit'), apple)
+			
+	        rt.connect(rt.get('green'), leaf)
+	        rt.get('banana').connect_to(leaf)
+	        rt.connect(rt.get('orange'), leaf)
 		})
 		
 		it('calculates graph paths and distances', function() {
@@ -522,6 +566,96 @@ describe('relational_tags', function() {
 			assert.equal(rt.graph_distance(organic), 0)
 			assert.equal(rt.graph_distance(apple), 0)
 			assert.equal(rt.graph_distance(organic, fruit), 1)
+		})
+		
+		it('searches entities by tag', function() {
+			// fail if tag not found
+			assert.throws(
+				function() { rt.search_entities_by_tag('nothing', false) },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_MISSING
+				},
+				'collision exception not thrown on search from missing tag'
+			)
+			
+			// find leaf by fruit
+			banana_leaf = rt.search_entities_by_tag(
+				'banana', 
+				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
+				true
+			)
+			console.log(`debug banana entities:\n${format_search(banana_leaf)}`)
+			assert.ok(banana_leaf.has(leaf))
+			assert.ok(banana_leaf.get(leaf).array_equals([rt.get('banana'), leaf]))
+			assert.ok(new Set(banana_leaf.keys()).set_equals(
+				new Set(rt.search_entities_by_tag('banana', false))
+			))
+			
+			fruit_leaf = rt.search_entities_by_tag(
+				rt.get('fruit'), 
+				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
+				true
+			)
+			console.log(`debug fruit entities:\n${format_search(fruit_leaf)}`)
+			assert.ok(fruit_leaf.has(leaf))
+			assert.equal(fruit_leaf.get(leaf).length, 3)
+			assert.equal(fruit_leaf.get(leaf)[0], rt.get('fruit'))
+			assert.equal(fruit_leaf.get(leaf)[2], leaf)
+			
+			// find leaf by color
+			color_leaf = rt.search_entities_by_tag(
+				rt.get('color'), 
+				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
+				true
+			)
+			console.log(`debug color entities:\n${format_search(color_leaf)}`)
+			assert.ok(color_leaf.has(leaf))
+			assert.equal(color_leaf.get(leaf).length, 3)
+			assert.equal(color_leaf.get(leaf)[0], rt.get('color'), 'color not first in path to leaf')
+			assert.equal(color_leaf.get(leaf)[2], leaf, 'leaf not last in path to leaf')
+		})
+		
+		it('searches tags by entity', function() {
+			// find ancestor tags of leaf
+			let leaf_tags = RelationalTag._search_descendants(
+				leaf,
+				RelationalTagConnection.TYPE_TO_TAG_PARENT,
+				false,		// include_entities
+				true		// include_tags
+			)
+			console.log(`debug leaf tags:\n${format_search(leaf_tags)}`)
+			for (let tag of RelationalTag._tagged_entities.get(leaf).keys()) {
+				assert.ok(leaf_tags.has(tag), `${tag.name} not in leaf tags`)
+			}
+			
+			assert.ok(leaf_tags.has(rt.get('fruit')))
+			assert.ok(leaf_tags.has(rt.get('color')))
+			assert.ok(!leaf_tags.has(rt.get('animal')))
+		})
+		
+		it('searches tags by tag', function() {
+			// find descendant tags of fruit
+			navel = rt.new('navel')
+			rt.connect(navel, rt.get('orange'), RelationalTagConnection.TYPE_TO_TAG_PARENT)
+			
+			fruit_tags = RelationalTag._search_descendants(
+				rt.get('fruit'),
+				RelationalTagConnection.TYPE_TO_TAG_CHILD,
+				false,		// include_entities
+				true		// include_tags
+			)
+			console.log(`debug fruit tags:\n${format_search(fruit_tags)}`)
+			for (let tag of rt.get('fruit').connections.keys()) {
+				if (rt.get('fruit').connections.get(tag).type == RelationalTagConnection.TYPE_TO_TAG_CHILD) {
+					assert.ok(fruit_tags.has(tag), `${tag.name} not in fruit descendant tags`)
+				}
+				else {
+					assert.ok(!fruit_tags.has(tag), `${tag.name} in fruit descendant tags`)
+				}
+			}
+			
+			assert.ok(fruit_tags.has(navel))
 		})
 	})
 	
