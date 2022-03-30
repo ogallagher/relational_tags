@@ -155,7 +155,10 @@ rt.search_entities_by_tag('color')
 rt.search_entities_by_tag('fruit')
 // [ball]
 
-// TODO save and load via json
+// save and load via json
+let json = rt.save_json()
+rt.clear()
+rt.load_json(json)
 ```
 
 # Theory

@@ -550,6 +550,8 @@ class RelationalTag:
     @classmethod
     def load_json(cls, json_in:str, get_if_exists:bool=True, skip_bad_conns:bool=False) -> List['RelationalTag']:
         """Load all tags and connections from a json string created by `RelationalTag.save_json`.
+        
+        TODO only return the list of newly loaded tags.
         """
         
         tag_dicts:List[Dict] = json.loads(json_in)

@@ -659,6 +659,71 @@ describe('relational_tags', function() {
 		})
 	})
 	
+	describe('json save + load', function() {		
+		before(function() {
+			rt.clear()
+			
+			rt.load({
+				color: ['red', 'orange', 'yellow']
+			})
+			
+			rt.get('red').connect_to({
+				type: 'apple',
+				age: 'ripe'
+			})
+		})
+		
+		it('saves and restores tags and entities', function() {
+			const json = rt.save_json()
+			assert.equal(typeof json, 'string')
+			
+			rt.clear()
+			
+			let loaded = rt.load_json(json)
+			for (let tag_loaded of loaded) {
+				assert.ok(
+					rt.all_tags.has(tag_loaded.name),
+					`${tag_loaded} not found in relational tags`
+				)
+			}
+			
+			assert.ok(rt.get('color').connections.has(rt.get('red')))
+			assert.equal(
+				rt.get('color').connections.get(rt.get('red')).type,
+				RelationalTagConnection.TYPE_TO_TAG_CHILD
+			)
+			
+			let loaded_ent = new Array(...RelationalTag._tagged_entities.keys())[0]
+			assert.ok('type' in loaded_ent && loaded_ent['type'] == 'apple')
+		})
+		
+		it('throws exceptions on invalid loads', function() {
+			let broken = {
+				member: 'broken'
+			}
+			rt.connect(rt.get('yellow'), broken)
+			assert.ok(rt.get('yellow').connections.has(broken))
+			
+			let yellow_json = rt.save_tag('yellow').substring(1)
+			assert.throws(
+				function() { rt.load_tag(yellow_json) },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_FORMAT
+				}
+			)
+			
+			let json = rt.save_json().substring(1)
+			assert.throws(
+				function() { rt.load_json(json) },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_FORMAT
+				}
+			)
+		})
+	})
+	
 	describe('RelationalTagConnection', function() {
 		let tags = ['red', 'green', 'blue']
 		let ents = ['apple', 'banana', 'strawberry']

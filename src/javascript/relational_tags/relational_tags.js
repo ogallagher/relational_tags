@@ -166,7 +166,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.10'
+RelationalTag.VERSION = '0.1.11'
 
 // RelationalTag static variables
 
@@ -585,6 +585,167 @@ RelationalTag.load = function(tags, tag_tag_type) {
 }
 
 /**
+ * Load a tag from its json string representation, or equivalent deserialized object.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {(String|Object)} tag_json Tag json string or deserialized object.
+ * @param {Boolean} get_if_exists Get existing tag if tag of given name already exists.
+ * @param {Boolean} skip_bad_conns Whether to quietly skip tag connections that fail to load
+ * (ex. tag-entity connection to entity that doesn't properly serialize).
+ * 
+ * @returns {RelationalTag}
+ * 
+ * @throws {RelationalTagException} The given string or object is invalid format.
+ */
+RelationalTag.load_tag = function(tag_json, get_if_exists, skip_bad_conns) {
+	get_if_exists = (get_if_exists === undefined) ? true : get_if_exists
+	skip_bad_conns = (skip_bad_conns === undefined) ? false : skip_bad_conns
+	
+	// convert json string to object
+	if (typeof tag_json == 'string' || tag_json instanceof String) {
+		try {
+			tag_json = JSON.parse(tag_json)
+		}
+		catch (err) {
+			if (err instanceof SyntaxError) {
+				throw new RelationalTagException(
+					`unable to load tag from string ${tag_json}`,
+					RelationalTagException.TYPE_FORMAT
+				)
+			}
+			else {
+				throw err
+			}
+		}
+	}
+	
+	let tag = RelationalTag.new(Object.keys(tag_json)[0], get_if_exists)
+	
+	for (let conn_arr of tag_json[tag.name]) {
+		const conn_type = conn_arr[1]
+		
+		if (RelationalTagConnection._TAG_TAG_TYPES.indexOf(conn_type) != -1) {
+			// tag-tag
+			target_tag = RelationalTag.get(conn_arr[2], true)
+			
+			RelationalTag.connect(
+				tag,
+				target_tag,
+				conn_type
+			)
+		}
+		else {
+			// tag-ent
+			try {
+				// entity parsed as plain js object
+				target_entity_json = conn_arr[2]
+				
+				RelationalTag.connect(
+					tag,
+					target_entity_json,
+					conn_type
+				)
+			}
+			catch (err) {
+				if (err instanceof SyntaxError) {
+					let rt_error = new RelationalTagException(
+						`loading a tag-entity connection for ${conn_arr[2]} not supported: ${JSON.stringify(conn_arr)}`,
+						RelationalTagException.TYPE_FORMAT
+					)
+					
+					if (skip_bad_conns) {
+						console.log(`error ${rt_error}`)
+					}
+					else {
+						throw rt_error
+					}
+				}
+				else {
+					throw err
+				}
+			}
+		}
+	}
+	
+	return tag
+}
+
+/**
+ * Export/serialize a tag as a json compatible string.
+ * 
+ * Inverse of {@link RelationalTag.load_tag}.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {(String|RelationalTag)} tag
+ * 
+ * @returns {String}
+ */
+RelationalTag.save_tag = function(tag) {
+	if (typeof tag == 'string' || tag instanceof String) {
+		tag = RelationalTag.get(tag)
+	}
+	
+	return tag.toString()
+}
+
+/**
+ * @memberOf RelationalTag
+ * 
+ * @param {String} json_in paramDescription
+ * @param {Boolean} get_if_exists paramDescription
+ * @param {Boolean} skip_bad_conns paramDescription
+ * 
+ * @returns {Array} Array of loaded tags.
+ * 
+ * @throws {RelationalTagException} The given string is invalid format.
+ */
+RelationalTag.load_json = function(json_in, get_if_exists, skip_bad_conns) {
+	get_if_exists = (get_if_exists === undefined) ? true : get_if_exists
+	skip_bad_conns = (skip_bad_conns === undefined) ? false : skip_bad_conns
+	
+	let loaded_tags = []
+	
+	try {
+		for (let tag_json of JSON.parse(json_in)) {
+			loaded_tags.push(RelationalTag.load_tag(tag_json, get_if_exists, skip_bad_conns))
+		}
+	}
+	catch (err) {
+		if (err instanceof SyntaxError) {
+			let rt_error = new RelationalTagException(
+				`failed to parse tags json:\n${err.stack}`,
+				RelationalTagException.TYPE_FORMAT
+			)
+			throw rt_error
+		}
+		else {
+			throw err
+		}
+	}
+	
+	return loaded_tags
+}
+
+/**
+ * Save all tags and connections as a json string.
+ * 
+ * Inverse of {@link RelationalTag.load_json}.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @returns {String} The json string.
+ */
+RelationalTag.save_json = function() {
+	return `[${
+		new Array(...RelationalTag.all_tags.values()).map((tag) => {
+			return tag.toString()
+		}).join(',')
+	}]`
+}
+
+/**
  * Whether the given tag or entity is present in the relational tags system/graph.
  * 
  * @memberOf RelationalTag
@@ -899,7 +1060,8 @@ RelationalTagException.TYPES = [
 	'GENERIC',
 	'MISSING',
 	'WRONG_TYPE',
-	'COLLISION'
+	'COLLISION',
+	'FORMAT'
 ]
 for (let type of RelationalTagException.TYPES) {
 	RelationalTagException[`TYPE_${type.toUpperCase()}`] = type.toUpperCase()
@@ -1009,11 +1171,11 @@ class RelationalTagConnection {
  * @memberOf RelationalTagConnection
  */
 RelationalTagConnection.TYPES = [
-    'TO_TAG_UNDIRECTED',
-    'TO_TAG_PARENT',
+	'TO_TAG_UNDIRECTED',
+	'TO_TAG_PARENT',
 	'TO_TAG_CHILD',
 	'TO_ENT',
-    'ENT_TO_TAG'
+	'ENT_TO_TAG'
 ]
 
 /**
