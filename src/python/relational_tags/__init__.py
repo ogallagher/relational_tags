@@ -15,7 +15,7 @@ import json
 
 # module vars
 
-VERSION:str = '0.1.0'
+VERSION:str = '0.1.1'
 """Package version.
 """
 
@@ -304,7 +304,7 @@ class RelationalTag:
     
     # TODO finish RelationalTag.load?
     @classmethod
-    def load(cls, tags:Union[List[Union[str,'RelationalTag']],Dict[str,Union[str,List[str]]]], tag_tag_type:int=None) -> List['RelationalTag']:
+    def load(cls, tags:Union[List[Union[str,'RelationalTag']],Dict[str,Union[str,List[str]]]], tag_tag_type:str=None) -> List['RelationalTag']:
         """Load a set of tags, including optional connection info for each.
         
         There are multiple ways to define a relational tags system:
@@ -344,12 +344,12 @@ class RelationalTag:
         
         :param tags: Relational tags, either as a list or dict. Entities not supported.
         :param tag_tag_type: Specify what a key-value relationship in a dictionary means. Default
-        of `RelationalTagConnection.TO_TAG_CHILD` means the key is the parent of the value. See 
+        of `RelationalTagConnection.TYPE_TO_TAG_CHILD` means the key is the parent of the value. See 
         `RelationalTagConnection._TAG_TAG_TYPES` for possible values.
         """
         
         if tag_tag_type is None:
-            tag_tag_type = RelationalTagConnection.TO_TAG_CHILD
+            tag_tag_type = RelationalTagConnection.TYPE_TO_TAG_CHILD
         
         if isinstance(tags, List):
             for tag in tags:
@@ -425,7 +425,7 @@ class RelationalTag:
     # end _hashable_to_entity
     
     @classmethod
-    def connect(cls, tag_or_connection:Union['RelationalTag','RelationalTagConnection'], target:Node=None, connection_type:int=None) -> 'RelationalTagConnection':
+    def connect(cls, tag_or_connection:Union['RelationalTag','RelationalTagConnection'], target:Node=None, connection_type:str=None) -> 'RelationalTagConnection':
         """Connect a tag with a target.
         """
         
@@ -439,9 +439,9 @@ class RelationalTag:
             # resolve connection type
             if connection_type is None:
                 if isinstance(target,RelationalTag):
-                    connection_type = RelationalTagConnection.TO_TAG_UNDIRECTED
+                    connection_type = RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED
                 else:
-                    connection_type = RelationalTagConnection.TO_ENT
+                    connection_type = RelationalTagConnection.TYPE_TO_ENT
             
             hashable_target = cls._entity_to_hashable(target)
             
@@ -603,7 +603,7 @@ class RelationalTag:
         
         conn_arrs = tag_json[tag.name]
         for conn_arr in conn_arrs:
-            connection_type = RelationalTagConnection.str_to_type(conn_arr[1])
+            connection_type = conn_arr[1]
             if connection_type in RelationalTagConnection._TAG_TAG_TYPES:
                 target_tag = cls.get(conn_arr[2])
                 
@@ -666,19 +666,19 @@ class RelationalTag:
     # end save_tag
     
     @classmethod
-    def search_entities_by_tag(cls, tag:Union[str, 'RelationalTag'], search_direction:int=None, include_paths:bool=False) -> Union[List[Node],Dict[Node,List[Node]]]:
+    def search_entities_by_tag(cls, tag:Union[str, 'RelationalTag'], search_direction:str=None, include_paths:bool=False) -> Union[List[Node],Dict[Node,List[Node]]]:
         """Find all entities directly and indirectly connected to this tag.
         
         :param tag: The tag or tag name.
         :param search_direction: Tag-tag connection direction for search. If default of
-        `RelationalTagConnection.TO_TAG_CHILD`, for example, then all entities connected to this tag, as
+        `RelationalTagConnection.TYPE_TO_TAG_CHILD`, for example, then all entities connected to this tag, as
         well as all entities connected to descendants (instead of ancestors) of this tag, are returned.
         :param include_paths: Whether to return as a dictionary mapping entities to their paths from the start
         tag (`True`) or the return as a list of entities (`False`).
         """
         
         if search_direction is None:
-            search_direction = RelationalTagConnection.TO_TAG_CHILD
+            search_direction = RelationalTagConnection.TYPE_TO_TAG_CHILD
         
         if isinstance(tag, str):
             tag = cls.get(tag, new_if_missing=False)
@@ -698,7 +698,7 @@ class RelationalTag:
     # end search_entities_by_tag
     
     @classmethod
-    def _search_descendants(cls, node:Node, direction:int, include_entities:bool=True, include_tags:bool=False, visits:Set[Node]=None, path:List[Node]=None) -> Dict[Node, List[Node]]:
+    def _search_descendants(cls, node:Node, direction:str, include_entities:bool=True, include_tags:bool=False, visits:Set[Node]=None, path:List[Node]=None) -> Dict[Node, List[Node]]:
         """Internal helper method for searching the graph.
         
         Uses depth-first search to return the path to each found node from the start node. If the start node is
@@ -728,7 +728,7 @@ class RelationalTag:
         
             if isinstance(node, RelationalTag):
                 for child, conn in node.connections.items():
-                    if child not in visits and (conn.type == direction or conn.type == RelationalTagConnection.TO_ENT):
+                    if child not in visits and (conn.type == direction or conn.type == RelationalTagConnection.TYPE_TO_ENT):
                         if isinstance(child, RelationalTag):
                             child_path:List[Node] = path + [child]
                             if include_tags:
@@ -947,7 +947,7 @@ class RelationalTag:
         return hash(self.name)
     # end __hash__
     
-    def connect_to(self, other:Node, connection_type:int=None) -> 'RelationalTagConnection':
+    def connect_to(self, other:Node, connection_type:str=None) -> 'RelationalTagConnection':
         """Connect tag to another tag or entity.
         
         Calls the class method `RelationalTag.connect`.
@@ -980,112 +980,86 @@ class RelationalTagConnection:
     
     log:logging.Logger = log.getChild('RelationalTagConnection'.format(__name__))
     
-    TO_TAG_UNDIRECTED:int = 1
+    TYPE_TO_TAG_UNDIRECTED:str = 'TO_TAG_UNDIRECTED'
     """Undirected tag-tag connection."""
-    TO_TAG_PARENT:int = 2
+    TYPE_TO_TAG_PARENT:str = 'TO_TAG_PARENT'
     """Child-parent tag-tag connection."""
-    TO_TAG_CHILD:int = 3
+    TYPE_TO_TAG_CHILD:str = 'TO_TAG_CHILD'
     """Parent-child tag-tag connection."""
-    TO_ENT:int = 4
+    TYPE_TO_ENT:str = 'TO_ENT'
     """Tag-entity connection."""
-    ENT_TO_TAG:int = 5
+    TYPE_ENT_TO_TAG:str = 'ENT_TO_TAG'
     """Entity-tag connection."""
     
-    _TAG_TAG_TYPES:List[int] = [TO_TAG_UNDIRECTED,TO_TAG_PARENT,TO_TAG_CHILD]
+    _TAG_TAG_TYPES:List[str] = [TYPE_TO_TAG_UNDIRECTED,TYPE_TO_TAG_PARENT,TYPE_TO_TAG_CHILD]
     """All tag-tag connection types.
     
     ## Items
     
-    `TO_TAG_UNDIRECTED`
+    `TYPE_TO_TAG_UNDIRECTED`
     
-    `TO_TAG_PARENT`
+    `TYPE_TO_TAG_PARENT`
     
-    `TO_TAG_CHILD`
+    `TYPE_TO_TAG_CHILD`
     """
     
-    _TAG_ENT_TYPES:List[int] = [TO_ENT,ENT_TO_TAG]
+    _TAG_ENT_TYPES:List[str] = [TYPE_TO_ENT,TYPE_ENT_TO_TAG]
     """All tag-entity connection types.
     
     ## Items
     
-    `TO_ENT`
+    `TYPE_TO_ENT`
     
-    `ENT_TO_TAG`
+    `TYPE_ENT_TO_TAG`
     """
     
-    _TYPES:List[int] = [
-        TO_TAG_UNDIRECTED,TO_TAG_PARENT,TO_TAG_CHILD,TO_ENT,ENT_TO_TAG
+    _TYPES:List[str] = [
+        TYPE_TO_TAG_UNDIRECTED,TYPE_TO_TAG_PARENT,TYPE_TO_TAG_CHILD,TYPE_TO_ENT,TYPE_ENT_TO_TAG
     ]
     """All connection types.
     
     ## Items
     
-    `TO_TAG_UNDIRECTED`
+    `TYPE_TO_TAG_UNDIRECTED`
     
-    `TO_TAG_PARENT`
+    `TYPE_TO_TAG_PARENT`
     
-    `TO_TAG_CHILD`
+    `TYPE_TO_TAG_CHILD`
     
-    `TO_ENT`
+    `TYPE_TO_ENT`
     
-    `ENT_TO_TAG`
+    `TYPE_ENT_TO_TAG`
     """
     
     @classmethod
-    def type_to_str(cls,type:int) -> str:
-        """Convert connection type code to string.
+    def type_to_str(cls, type:str) -> str:
+        """Convert connection type code to string. **deprecated**
         """
         
-        if type == cls.TO_TAG_UNDIRECTED:
-            return 'to-tag-undirected'
-        
-        elif type == cls.TO_TAG_PARENT:
-            return 'to-tag-parent'
-        
-        elif type == cls.TO_TAG_CHILD:
-            return 'to-tag-child'
-            
-        elif type == cls.TO_ENT:
-            return 'to-entity'
-            
-        elif type == cls.ENT_TO_TAG:
-            return 'entity-to-tag'
+        return type
     # end type_to_str
     
     @classmethod
-    def str_to_type(cls,string:str) -> int:
-        """Convert connection type string to code.
+    def str_to_type(cls, string:str) -> str:
+        """Convert connection type string to code. **deprecated**
         """
         
-        if string == 'to-tag-undirected':
-            return cls.TO_TAG_UNDIRECTED
-        
-        elif string == 'to-tag-parent':
-            return cls.TO_TAG_PARENT
-        
-        elif string == 'to-tag-child':
-            return cls.TO_TAG_CHILD
-            
-        elif string == 'to-entity':
-            return cls.TO_ENT
-            
-        elif string == 'entity-to-tag':
-            return cls.ENT_TO_TAG
+        return string
     # end str_to_type
     
     @classmethod
-    def inverse_type(cls,type:int) -> int:
-        if type == cls.TO_TAG_PARENT:
-            return cls.TO_TAG_CHILD
+    def inverse_type(cls,type:str) -> str:
+        if type == cls.TYPE_TO_TAG_PARENT:
+            return cls.TYPE_TO_TAG_CHILD
         
-        elif type == cls.TO_TAG_CHILD:
-            return cls.TO_TAG_PARENT
+        elif type == cls.TYPE_TO_TAG_CHILD:
+            return cls.TYPE_TO_TAG_PARENT
         
-        elif type == cls.TO_ENT:
-            return cls.ENT_TO_TAG
+        elif type == cls.TYPE_TO_ENT:
+            return cls.TYPE_ENT_TO_TAG
             
-        elif type == cls.ENT_TO_TAG:
-            return cls.TO_ENT
+        elif type == cls.TYPE_ENT_TO_TAG:
+            return cls.TYPE_TO_ENT
             
         else:
             return type
@@ -1107,7 +1081,7 @@ class RelationalTagConnection:
         
         if len(connection_arr) == 3:
             source_str = connection_arr[0]
-            connection_type = cls.str_to_type(connection_arr[1])
+            connection_type = connection_arr[1]
             target_str = connection_arr[2]
             invert:bool = False
             
@@ -1182,7 +1156,7 @@ class RelationalTagConnection:
             )
     # end load_connection
     
-    def __init__(self, source:RelationalTag, target:Union[RelationalTag,Any], connection_type=TO_ENT):
+    def __init__(self, source:RelationalTag, target:Union[RelationalTag,Any], connection_type=TYPE_TO_ENT):
         """RelationalTagConnection constructor.
         """
         
@@ -1202,10 +1176,7 @@ class RelationalTagConnection:
         
         if self.type in cls._TAG_TAG_TYPES and not isinstance(target,RelationalTag):
             raise RelationalTagError(
-                'cannot create {} connection with non-tag {}'.format(
-                    cls.type_to_str(self.type),
-                    target
-                ),
+                f'cannot create {self.type} connection with non-tag {target}',
                 RelationalTagError.TYPE_WRONG_TYPE
             )
     # end __init__
@@ -1234,7 +1205,7 @@ class RelationalTagConnection:
         else:
             target_str = str(self.target)
         
-        return '[{},"{}",{}]'.format(source_str,cls.type_to_str(self.type),target_str)
+        return '[{},"{}",{}]'.format(source_str, self.type, target_str)
     # end __str__
     
     def __eq__(self, other) -> bool:

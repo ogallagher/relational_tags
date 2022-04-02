@@ -223,7 +223,7 @@ class TestFlatTags(TestRelationalTags):
         
         num_tags:int = len(set(cls.tag_names))
         cls.log.debug(f'create {num_tags} unconnected tags via names list load')
-        rt.load(cls.tag_names, tag_tag_type=RelationalTagConnection.TO_TAG_UNDIRECTED)
+        rt.load(cls.tag_names, tag_tag_type=RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED)
         
         self.assertEqual(num_tags, len(rt.all_tags))
         
@@ -381,7 +381,7 @@ class TestHierTags(TestRelationalTags):
         
         cls.log.info('rebuild tags hierarchy')
         rt.clear()
-        rt.load(tags=cls.hier_tag_names, tag_tag_type=RelationalTagConnection.TO_TAG_CHILD)
+        rt.load(tags=cls.hier_tag_names, tag_tag_type=RelationalTagConnection.TYPE_TO_TAG_CHILD)
     # end setUp
     
     def test_load(self):
@@ -529,7 +529,7 @@ class TestHierTags(TestRelationalTags):
         # find ancestor tags of leaf
         leaf_tags = RelationalTag._search_descendants(
             node='leaf', 
-            direction=RelationalTagConnection.TO_TAG_PARENT,
+            direction=RelationalTagConnection.TYPE_TO_TAG_PARENT,
             include_entities=False,
             include_tags=True
         )
@@ -543,11 +543,11 @@ class TestHierTags(TestRelationalTags):
         
         # find descendant tags of fruit
         navel = rt.new('navel')
-        rt.connect(navel, rt.get('orange'), RelationalTagConnection.TO_TAG_PARENT)
+        rt.connect(navel, rt.get('orange'), RelationalTagConnection.TYPE_TO_TAG_PARENT)
         
         fruit_tags = RelationalTag._search_descendants(
             node=rt.get('fruit'),
-            direction=RelationalTagConnection.TO_TAG_CHILD,
+            direction=RelationalTagConnection.TYPE_TO_TAG_CHILD,
             include_entities=False,
             include_tags=True
         )
