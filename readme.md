@@ -53,7 +53,7 @@ rt.load(
         'color': ['red', 'orange', 'yellow', 'green', 'blue'],
         'fruit': ['apple', 'banana', 'cherry', 'orange']
     },
-    RelationalTagConnection.TO_TAG_CHILD
+    RelationalTagConnection.TYPE_TO_TAG_CHILD
 )
 
 # create some things
@@ -93,7 +93,7 @@ print(rt.graph_distance(glove, ball))
 rt.search_entities_by_tag('orange')
 # [ball]
 rt.search_entities_by_tag('color')
-# [ball]
+# [glove, ball]
 rt.search_entities_by_tag('fruit')
 # [ball]
 
@@ -151,7 +151,7 @@ console.log(rt.graph_distance(glove, ball))
 rt.search_entities_by_tag('orange')
 // [ball]
 rt.search_entities_by_tag('color')
-// [ball]
+// [glove, ball]
 rt.search_entities_by_tag('fruit')
 // [ball]
 
