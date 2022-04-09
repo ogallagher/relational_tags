@@ -160,8 +160,8 @@ rt.search_entities_by_tag('fruit')
 // use search to find tags of entity
 rt.search_tags_of_entity(ball)              // all transitively connected tags to ball
 // [orange, color, fruit]
-rt.search_tags_of_entity(glove, 'color')    // what color is glove?
-// [red]
+rt.search_tags_of_entity(glove, 'color', 'TO_TAG_PARENT', true)    // what color is glove?
+// {color => [orange, color]}
 rt.search_tags_of_entity(ball, /.*or.*/)    // ball tags containing or
 // [orange, color]
 

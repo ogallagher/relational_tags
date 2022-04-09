@@ -196,7 +196,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.12'
+RelationalTag.VERSION = '0.1.13'
 
 // RelationalTag static variables
 
@@ -975,8 +975,6 @@ RelationalTag.search_tags_of_entity = function(entity, query, search_direction, 
 	else {
 		return new Array(...paths.keys())
 	}
-	
-	throw new NotImplementedError('search_tags_of_entity not yet implemented')
 }
 
 /**
