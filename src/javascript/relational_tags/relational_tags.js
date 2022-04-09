@@ -89,7 +89,7 @@ class RelationalTag {
 				RelationalTag.all_tags.set(this.name, this)
 			
 				/**
-				 * Relational tag connections. This is how we keep track of tag--[entity,tag] relationships.
+				 * Relational tag connections. This is how we keep track of tag-[entity,tag] relationships.
 				 * 
 				 * @type {Map}
 				 */
@@ -131,7 +131,7 @@ class RelationalTag {
 	/**
 	 * Returns this tag represented as json.
 	 * 
-	 * I cannot use {JSON.stringify} for this because this object has recursive references.
+	 * I cannot use `JSON.stringify` for this because this object has recursive references.
 	 * 
 	 * @returns {String}
 	 */
@@ -159,6 +159,36 @@ class RelationalTag {
 			(!RelationalTag._is_case_sensitive && other.name.toLowerCase() == this.name.toLowerCase())
 		)
 	}
+	
+	/**
+	 * Whether this tag matches the given query string or regular expression.
+	 * 
+	 * @param {(String|RegExp)} query String for exact match or regular expression to match this tag name against.
+	 * If `null` or `undefined`, this always returns `true`. If `query` is a regexp, the match must be complete;
+	 * the expression must capture all characters in the tag name.
+	 * 
+	 * @returns {Boolean}
+	 * @throws {RelationalTagException} `query` is not a string or RegExp instance.
+	 */
+	matches(query) {
+		if (query == null) {
+			return true
+		}
+		else if (typeof query == 'string') {
+			return this.name == query
+		}
+		else if (query instanceof RegExp) {
+			let m = this.name.match(query)
+			
+			return m != null && m[0] == this.name
+		}
+		else {
+			throw new RelationalTagException(
+				RelationalTagException.TYPE_WRONG_TYPE,
+				`invalid query of type ${typeof query} ${query} for match against tag name`
+			)
+		}
+	}
 }
 
 /**
@@ -166,7 +196,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.11'
+RelationalTag.VERSION = '0.1.12'
 
 // RelationalTag static variables
 
@@ -226,13 +256,13 @@ RelationalTag.is_case_sensitive = function() {
  * 
  * @memberOf RelationalTag
  * 
- * @param {RelationalTag|RelationalTagConnection} tag_or_connection The source tag, or a
+ * @param {(RelationalTag|RelationalTagConnection)} tag_or_connection The source tag, or a
  * connection instance.
- * @param {RelationalTag|Object} target The target tag or entity, or {undefined} if the first
+ * @param {(RelationalTag|Object)} target The target tag or entity, or `undefined` if the first
  * arg is a connection.
  * @param {String} connection_type Connection type.
  * 
- * @returns RelationalTagConnection
+ * @returns {RelationalTagConnection}
  * 
  * @throws {RelationalTagException} The given source and target don't match the connection type.
  */
@@ -292,9 +322,9 @@ RelationalTag.connect = function(tag_or_connection, target, connection_type) {
  * 
  * @memberOf RelationalTag
  * 
- * @param {RelationalTag|RelationalTagConnection} tag_or_connection Connection source,
+ * @param {(RelationalTag|RelationalTagConnection)} tag_or_connection Connection source,
  * or connection instance.
- * @param {RelationalTag|Object} target Connection target, or `undefined` if a
+ * @param {(RelationalTag|Object)} target Connection target, or `undefined` if a
  * connection is provided as the first arg.
  */
 RelationalTag.disconnect = function(tag_or_connection, target) {
@@ -487,7 +517,7 @@ RelationalTag.clear = function() {
  * 
  * Pass a list of tag name strings. Tags will not have any relationships with each other.
  * 
- * ```
+ * ```javascript
  * rtags.load(['apple','banana','cinnamon','donut'])
  * ```
  * 
@@ -496,7 +526,7 @@ RelationalTag.clear = function() {
  * Pass an object, where each key is a tag name string, and each value is either a single
  * tag name, or a list of tag names.
  * 
- * ```
+ * ```javascript
  * rtags.load({
  * 	'fruit': ['apple','banana','orange'],
  * 	'food': ['fruit','vegetable'],
@@ -750,7 +780,7 @@ RelationalTag.save_json = function() {
  * 
  * @memberOf RelationalTag
  * 
- * @param {{RelationalTag|Object}} The tag or entity to check.
+ * @param {(RelationalTag|Object)} node The tag or entity to check.
  * 
  * @returns {Boolean}
  */
@@ -885,7 +915,7 @@ RelationalTag.graph_distance = function(a, b) {
  * @returns {(Array|Map)}
  */
 RelationalTag.search_entities_by_tag = function(tag, search_direction, include_paths) {
-	// search direction default TO_TAG_CHILD
+	// search direction default TYPE_TO_TAG_CHILD
 	search_direction = search_direction === undefined 
 		? RelationalTagConnection.TYPE_TO_TAG_CHILD 
 		: search_direction
@@ -910,6 +940,46 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
 }
 
 /**
+ * Find all tags directly and indirectly connected to this entity that match the given query string.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {Object} entity The entity from which to start the search.
+ * @param {(String|RegExp)} query Optional string or regular expression for filtering tag names. 
+ * If the query is a string, only one tag will be returned, as it must be an exact match.
+ * @param {String} search_direction Tag-tag connection direction for search. If default of
+ * `RelationalTagConnection.TYPE_TO_TAG_PARENT`, for example, then all tags connected to this entity,
+ * as well as all ancestors of those tags, are returned.
+ * @param {Boolean} include_paths Whether to return as a dictionary mapping entities to their paths
+ * from the start entity (`true`) or return as a list of entities (`false`).
+ * 
+ * @returns {(Array|Map)}
+ */
+RelationalTag.search_tags_of_entity = function(entity, query, search_direction, include_paths) {
+	// search direction default to TYPE_TO_TAG_PARENT
+	search_direction = search_direction === undefined
+		? RelationalTagConnection.TYPE_TO_TAG_PARENT
+		: search_direction
+	
+	paths = RelationalTag._search_descendants(
+		entity,
+		search_direction,
+		false,				// include_entities
+		true,				// include_tags
+		query				// tag_query
+	)
+	
+	if (include_paths) {
+		return paths
+	}
+	else {
+		return new Array(...paths.keys())
+	}
+	
+	throw new NotImplementedError('search_tags_of_entity not yet implemented')
+}
+
+/**
  * Internal helper method for searching the graph.
  * 
  * Uses depth-first search to return the path to each node from the start node. If the start node is 
@@ -919,17 +989,23 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
  * @memberOf RelationalTag
  * 
  * @param {(RelationalTag|Object)} node Start tag or entity from which to begin searching.
- * @param {Number} direction Tag-tag connection direction (ex. `TO_PARENT`, `TO_CHILD`).
+ * @param {Number} direction Tag-tag connection direction (ex. `TYPE_TO_PARENT`, `TYPE_TO_CHILD`).
  * @param {Boolean} include_entities If `true`, each entity found after the start node is its own key
  * in the result map.
  * @param {Boolean} include_tags If `true`, each tag found after the start node is its own key in the
  * result map.
- * @param {Set} visits paramDescription
+ * @param {String|RegExp} tag_query Query string for exact match or regexp for filtering tag names.
+ * @param {Set} visits Nodes already visited.
  * @param {Array} path Path from an original start node to the current node.
  * 
  * @returns {Map} Map of search results, each node as the key and the corresponding path as the value.
  */
-RelationalTag._search_descendants = function(node, direction, include_entities, include_tags, visits, path) {
+RelationalTag._search_descendants = function(
+	node, direction, 
+	include_entities, include_tags, 
+	tag_query,
+	visits, path
+) {
 	// include entities default true
 	include_entities = (include_entities === undefined) ? true : include_entities
 	// include tags default false
@@ -960,21 +1036,22 @@ RelationalTag._search_descendants = function(node, direction, include_entities, 
 				if (!visits.has(child) && (conn.type == direction || conn.type == RelationalTagConnection.TYPE_TO_ENT)) {
 					if (child instanceof RelationalTag) {
 						child_path = path.concat([child])
-						if (include_tags) {
+						if (include_tags && child.matches(tag_query)) {
 							// add tag as key in res
 							results.set(child, child_path)
 						}
-						
+					
 						// search descendants of each child
 						let child_results = RelationalTag._search_descendants(
 							child,
 							direction,
 							include_entities,
 							include_tags,
+							tag_query,
 							visits,
 							child_path
 						)
-						
+					
 						// add child results to results
 						for (let key of child_results.keys()) {
 							results.set(key, child_results.get(key))
@@ -993,18 +1070,21 @@ RelationalTag._search_descendants = function(node, direction, include_entities, 
 			// is entity
 			// combine searches of all tags
 			for (let tag of RelationalTag._tagged_entities.get(node).keys()) {
-				// add tag to results
-				results.set(tag, [tag])
+				if (tag.matches(tag_query)) {
+					// add tag to results
+					results.set(tag, [tag])
+				}
 				
 				let tag_results = RelationalTag._search_descendants(
 					tag,
 					direction,
 					include_entities,
 					include_tags,
+					tag_query,
 					visits,
 					[tag]
 				)
-				
+			
 				// add tag results to results
 				for (let key of tag_results.keys()) {
 					results.set(key, tag_results.get(key))

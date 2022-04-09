@@ -53,7 +53,7 @@ rt.load(
         'color': ['red', 'orange', 'yellow', 'green', 'blue'],
         'fruit': ['apple', 'banana', 'cherry', 'orange']
     },
-    RelationalTagConnection.TO_TAG_CHILD
+    RelationalTagConnection.TYPE_TO_TAG_CHILD
 )
 
 # create some things
@@ -93,9 +93,11 @@ print(rt.graph_distance(glove, ball))
 rt.search_entities_by_tag('orange')
 # [ball]
 rt.search_entities_by_tag('color')
-# [ball]
+# [glove, ball]
 rt.search_entities_by_tag('fruit')
 # [ball]
+
+# TODO use search to find tags of entity
 
 # TODO save and load via json
 ```
@@ -151,9 +153,17 @@ console.log(rt.graph_distance(glove, ball))
 rt.search_entities_by_tag('orange')
 // [ball]
 rt.search_entities_by_tag('color')
-// [ball]
+// [glove, ball]
 rt.search_entities_by_tag('fruit')
 // [ball]
+
+// use search to find tags of entity
+rt.search_tags_of_entity(ball)              // all transitively connected tags to ball
+// [orange, color, fruit]
+rt.search_tags_of_entity(glove, 'color')    // what color is glove?
+// [red]
+rt.search_tags_of_entity(ball, /.*or.*/)    // ball tags containing or
+// [orange, color]
 
 // save and load via json
 let json = rt.save_json()

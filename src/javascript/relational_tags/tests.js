@@ -616,7 +616,7 @@ describe('relational_tags', function() {
 			assert.equal(color_leaf.get(leaf)[2], leaf, 'leaf not last in path to leaf')
 		})
 		
-		it('searches tags by entity', function() {
+		it('searches tags by entity without query', function() {
 			// find ancestor tags of leaf
 			let leaf_tags = RelationalTag._search_descendants(
 				leaf,
@@ -632,6 +632,27 @@ describe('relational_tags', function() {
 			assert.ok(leaf_tags.has(rt.get('fruit')))
 			assert.ok(leaf_tags.has(rt.get('color')))
 			assert.ok(!leaf_tags.has(rt.get('animal')))
+		})
+		
+		it('searches tags by entity with query', function() {
+			let query = /.*an.*/
+			let leaf_tags = rt.search_tags_of_entity(
+				leaf, 
+				query, 
+				RelationalTagConnection.TYPE_TO_TAG_PARENT, 
+				true
+			)
+			console.log(`debug leaf tags matching ${query}:\n${format_search(leaf_tags)}`)
+			assert.ok(leaf_tags.has(rt.get('orange')), 'orange not in leaf tags')
+			assert.ok(leaf_tags.has(rt.get('organic')), 'organic not in leaf tags')
+			assert.ok(leaf_tags.has(rt.get('banana')), 'banana not in leaf tags')
+			assert.ok(!leaf_tags.has(rt.get('green')), `green leaf tag matched query ${query}`)
+			
+			rt.connect(rt.new('bananas'), leaf)
+			query = 'banana'
+			leaf_tags = rt.search_tags_of_entity(leaf, query)
+			assert.equal(leaf_tags.indexOf(rt.get('banana')), 0, 'banana not in leaf tags')
+			assert.equal(leaf_tags.indexOf(rt.get('bananas')), -1, `bananas leaf tag matched query ${query}`)
 		})
 		
 		it('searches tags by tag', function() {
@@ -659,7 +680,7 @@ describe('relational_tags', function() {
 		})
 	})
 	
-	describe('json save + load', function() {		
+	describe('json save + load', function() {
 		before(function() {
 			rt.clear()
 			
