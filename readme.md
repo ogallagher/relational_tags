@@ -4,6 +4,47 @@ See [original dev.to post](https://dev.to/owengall/relational-tags-29n9) for ini
 
 This repository contains implementations of relational tags organization in various languages.
 
+# Development
+
+## Python
+
+Some auxiliary scripts assume that you're using a virtual environment named `env/`. To set this up, run the following.
+
+```bash
+# enter python source dir
+cd src/python
+# create virtual environment
+python -m virtualenv env
+```
+
+Then, you can proceed to install development dependencies.
+
+```bash
+# activate virtual environment
+source env/bin/activate
+# install dependencies
+python -m pip install -r relational_tags/requirements.txt
+# confirm dependencies
+python -m pip list
+```
+
+## Javascript
+
+Start by installing the development dependencies.
+
+```bash
+# enter javascript source dir
+cd src/javascript
+# install dependencies
+npm install
+# confirm dependencies
+npm list
+```
+
+## Java
+
+Pending.
+
 # Installation
 
 ## Python
@@ -21,6 +62,10 @@ Available at [npmjs.com](https://www.npmjs.com/package/relational_tags) as an in
 ```
 npm install relational_tags
 ```
+
+## Java
+
+Pending.
 
 # Showcase
 
