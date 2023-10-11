@@ -15,6 +15,9 @@ examples/python/rt_webapp/**/migrations/
 # javascript
 **/node_modules/
 
+# java
+src/java/**/target/
+
 # videos
 docs/*.mp4
 
