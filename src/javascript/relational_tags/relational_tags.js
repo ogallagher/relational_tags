@@ -1155,6 +1155,7 @@ class RelationalTagConnection {
 	 * itself with the source or target. Use {@link RelationalTag#connect} instead.
 	 * 
 	 * @param {RelationalTag} source
+	 * TODO source is not always RelationalTag type?
 	 * 
 	 * @param {RelationalTag|Object} target
 	 * 

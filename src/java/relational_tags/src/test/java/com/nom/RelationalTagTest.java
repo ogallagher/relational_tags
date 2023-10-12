@@ -8,6 +8,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.nom.RelationalTagException.ExceptionType;
+
 /**
  * Unit tests for relational tags.
  */
@@ -42,9 +44,13 @@ public class RelationalTagTest
     @Test
     public void createNewTag() throws RelationalTagException
     {
-        RelationalTag fruit = new RelationalTag("fruit");
-        logger.info("fruit = " + fruit);
-        assertTrue(fruit.toString().equals("fruit"));
+        RelationalTag red = new RelationalTag("red");
+        logger.info("red = " + red);
+        assertTrue(red.toString().equals("red"));
+        assertTrue(red.getName().equals("red"));
+
+        assertTrue("red tag in all tags", RelationalTag.getAllTags().containsKey(red.getName()));
+        assertTrue("red tag is relational tag", RelationalTag.get("red", false) instanceof RelationalTag);
     }
 
     @Test
@@ -55,11 +61,19 @@ public class RelationalTagTest
 
         try {
             new RelationalTag("fruit");
-            assertTrue("fruitCopy tag constructor should have thrown error", false);
+            assertTrue("duplicate fruit tag constructor should throw error", false);
         }
         catch (RelationalTagException e) {
             logger.info(e.toString());
-            assertTrue(e.type.equals(RelationalTagException.ExceptionType.COLLISION));
+            assertTrue(e.type.equals(ExceptionType.COLLISION));
+        }
+
+        try {
+            new RelationalTag(null);
+        }
+        catch (RelationalTagException e) {
+            logger.info(e.toString());
+            assertTrue(e.type.equals(ExceptionType.WRONG_TYPE));
         }
     }
 }
