@@ -140,7 +140,7 @@ class RelationalTag {
 		let connections_str = new Array(connections.length)
 		
 		for (let c=0; c < connections.length; c++) {
-			connections_str[c] = connections[c].toString()
+			connections_str[c] = connections[c].toSring()
 		}
 		
 		return `{"${this.name}": [${connections_str.join(',')}]}`
@@ -175,6 +175,7 @@ class RelationalTag {
 			return true
 		}
 		else if (typeof query == 'string') {
+			// TODO handle not case sensitive string match?
 			return this.name == query
 		}
 		else if (query instanceof RegExp) {
@@ -184,8 +185,8 @@ class RelationalTag {
 		}
 		else {
 			throw new RelationalTagException(
-				RelationalTagException.TYPE_WRONG_TYPE,
-				`invalid query of type ${typeof query} ${query} for match against tag name`
+				`invalid query of type ${typeof query} ${query} for match against tag name`,
+				RelationalTagException.TYPE_WRONG_TYPE
 			)
 		}
 	}
@@ -1208,7 +1209,7 @@ class RelationalTagConnection {
 	 * are kept unchanged. The resulting array is then passed as an argument to `JSON.stringify`. Therefore,
 	 * all properties that can be stored in a json representation of the entity will be preserved.
 	 * 
-	 * {@link RelationalTag#toString} is not used for serializing tags because it would case recursion when
+	 * {@link RelationalTag#toString} is not used for serializing tags because it would cause recursion when
 	 * serializing their connections.
 	 * 
 	 * @returns {String}

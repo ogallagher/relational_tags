@@ -33,3 +33,6 @@ docs/pdocs/
 
 # secrets
 secret/
+
+# vscode
+.vscode/
