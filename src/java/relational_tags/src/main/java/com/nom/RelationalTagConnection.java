@@ -1,5 +1,6 @@
 package com.nom;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -25,11 +26,11 @@ public class RelationalTagConnection {
      * 
      * TODO is TO_ENT supposed to be included? What about ENT_TO_TAG?
      */
-    private static Set<ConnectionType> TAG_TAG_TYPES;
+    private static Set<ConnectionType> TAG_TAG_TYPES = new HashSet<>();
     /**
      * Connection types between a tag and an entity.
      */
-    private static Set<ConnectionType> TAG_ENT_TYPES;
+    private static Set<ConnectionType> TAG_ENT_TYPES = new HashSet<>();
 
     static {
         for (ConnectionType type : ConnectionType.values()) {

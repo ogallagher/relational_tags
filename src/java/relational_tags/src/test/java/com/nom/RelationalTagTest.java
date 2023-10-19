@@ -1,15 +1,21 @@
 package com.nom;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
+import com.nom.RelationalTagConnection.ConnectionType;
 import com.nom.RelationalTagException.ExceptionType;
 
 /**
@@ -53,6 +59,7 @@ public class RelationalTagTest
 
         assertTrue("red tag in all tags", RelationalTag.getAllTags().containsKey(red.getName()));
         assertTrue("red tag is relational tag", RelationalTag.get("red", false) instanceof RelationalTag);
+        assertTrue("yellow tag is relational tag", RelationalTag.newTag("yellow", true) instanceof RelationalTag);
     }
 
     @Test
@@ -62,6 +69,7 @@ public class RelationalTagTest
         logger.fine("fruit = " + fruit);
 
         try {
+            // only allows for unique tag names
             new RelationalTag("fruit");
             assertTrue("duplicate fruit tag constructor should throw error", false);
         }
@@ -71,6 +79,7 @@ public class RelationalTagTest
         }
 
         try {
+            // only allow strings for tag names
             new RelationalTag(null);
         }
         catch (RelationalTagException e) {
@@ -118,64 +127,60 @@ public class RelationalTagTest
     }
 
     @Test
-    @Ignore
-    public void clearTagsEntities() {
-        
+    public void clearTagsEntities() throws RelationalTagException {
+        assertEquals("no tags at start of test", 0, RelationalTag.getAllTags().size());
+
+        Entity e1 = new Entity("e1", null);
+        RelationalTag.connect(new RelationalTag("t1"), e1, ConnectionType.TO_ENT);
+        assertEquals("one tag in middle of test", RelationalTag.getAllTags().size(), 1);
+
+        RelationalTag.clear();
+        assertEquals("no tags at end of test", 0, RelationalTag.getAllTags().size());
     }
 
-    protected class Entity {
-        public String name;
-        public String[] fruit;
-        public void method(String message) {
-            logger.info(this.name + " says " + message);
-        }
+    @Test
+    public void deleteExisting() throws RelationalTagException {
+        RelationalTag.newTag("apple");
+        int numTagsBefore = RelationalTag.getAllTags().size();
+        RelationalTag.delete("apple");
 
-        public Entity(String name, String[] fruit) {
-            this.name = name;
-            this.fruit = fruit;
-        }
+        assertEquals(
+            "number of tags decremented after delete of tag",
+            numTagsBefore - 1,
+            RelationalTag.getAllTags().size()
+        );
     }
 
-    public class ManageConnectionsTest {
-        @Before
-        public void setUp() {
-            logger.finest("in setUp");
-            RelationalTag.config(false);
+    @Test
+    public void deleteFailQuietly() throws RelationalTagException {
+        RelationalTag.newTag("apple");
+        int numTagsBefore = RelationalTag.getAllTags().size();
+        RelationalTag.delete("missing");
 
-            String[] tagNames = new String[] {"color", "red", "yellow"};
-            String apple = "apple";
-            String banana = "banana";
-            Entity object = new Entity("object", new String[] {apple, banana});
-        }
+        assertEquals(
+            "number of tags unchanged after failed delete of missing tag",
+            numTagsBefore,
+            RelationalTag.getAllTags().size()
+        );
+    }
+    
+    @Test
+    public void loadTagsFromFlatList() throws RelationalTagException {
+        String[] tagNames = new String[] {"red", "green", "blue", "blue"};
+        List<RelationalTag> tags = RelationalTag.load(Arrays.asList(tagNames));
 
-        @After
-        public void tearDown() {
-            logger.finest("in tearDown");
-            RelationalTag.clear();
-        }
+        assertEquals("loaded expected number of tags", 3, tags.size());
+        assertTrue(RelationalTag.get("blue", false) instanceof RelationalTag);
+    }
 
-        @Test
-        @Ignore
-        public void connectTags() {
+    @Test
+    public void loadTagsFromMap() throws RelationalTagException {
+        Map<String, Object> tagTree = new HashMap<>();
+        tagTree.put("color", Arrays.asList("red", "green", "blue", "blue", "orange"));
+        tagTree.put("fruit", Arrays.asList("banana", "orange"));
 
-        }
+        RelationalTag.load(tagTree, null);
 
-        @Test
-        @Ignore
-        public void connectEntities() {
-
-        }
-
-        @Test
-        @Ignore
-        public void disconnectTags() {
-
-        }
-
-        @Test
-        @Ignore
-        public void disconnectEntities() {
-
-        }
+        // TODO test graph structure
     }
 }

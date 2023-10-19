@@ -112,6 +112,7 @@ describe('relational_tags', function() {
 			assert.ok(true, 'constructor allows String instance')
 		})
 		
+		// TODO create some tags and entities before confirming clear
 		it('clears all existing tags and tagged entities', function() {
 			let num_tags = RelationalTag.all_tags.size
 			let num_cleared = RelationalTag.clear()

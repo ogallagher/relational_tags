@@ -512,6 +512,7 @@ RelationalTag.clear = function() {
  * 
  * ### From save
  * 
+ * // TODO does this use case make sense? Is it mislabelled instead of restoring after clear?
  * Pass a list of {@link RelationalTag} instances as the `tags` arg.
  * 
  * ### Flat
@@ -543,6 +544,7 @@ RelationalTag.clear = function() {
  * @param {String} tag_tag_type Specify what a key-value relationship in the object/dictionary means. Default
  * of `RelationalTagConnection.TYPE_TO_TAG_CHILD` means the key is the parent of the value.
  * 
+ * // TODO return is actually list of all relational tags, including pre existing ones
  * @returns {Array} List of generated relational tags.
  * 
  * @throws {RelationalTagException} `tags` is not a supported type/format.

@@ -1,9 +1,11 @@
 package com.nom;
 
 import java.lang.Runtime.Version;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -455,8 +457,90 @@ public class RelationalTag {
         return numTags;
     }
     
-    public static List<RelationalTag> load() {
-        throw new UnsupportedOperationException("not yet implemented");
+    /**
+     * Load a flat collection of tags.
+     * 
+     * Tags can be duplicated; they will only be loaded once.
+     * 
+     * There are multiple ways to define a relational tags system:
+     * 
+     * <h3>From save</h3>
+     * 
+     * Pass a list of {@link RelationalTag} instances as the {@code tags} arg.
+     * 
+     * <h3>Flat</h3>
+     * 
+     * Pass a list of tag name strings. Tags will not have any relationships with each other.
+     * 
+     * <code>
+     * RelationalTag.load(new String[] {"apple", "banana", "cinnamon", "donut"});
+     * </code>
+     * 
+     * <h3>Hierarchy</h3>
+     * 
+     * See {@link #load(Map, ConnectionType)}.
+     * 
+     * @param tags
+     * 
+     * @return List of all tags, both new and pre existing.
+     * @throws RelationalTagException
+     */
+    public static List<RelationalTag> load(Collection<String> tags) throws RelationalTagException {
+        logger.info("loading " + tags.size() + " relational tags from flat list");
+
+        for (String tagName : tags) {
+            RelationalTag.newTag(tagName, true);
+        }
+
+        return new ArrayList<>(allTags.values());
+    }
+
+    /**
+     * Load a hierarchical collection of tags, including optional connection info for each.
+     * 
+     * Tags can be duplicated in the map; they will only be loaded once.
+     * 
+     * To load from a flat list without specifying connections, see {@link #load(Collection)}.
+     * 
+     * @param tags Each key is a tag name string, and each value is either a tag name or list of tag names.
+     * @param tagTagType Specify what a key-value relationship in the map means. Default of
+     * {@link ConnectionType#TO_TAG_CHILD} means the key is the parent of the value.
+     * 
+     * @return List of all tags, both new and pre existing.
+     * @throws RelationalTagException
+     */
+    public static List<RelationalTag> load(Map<String, Object> tags, ConnectionType tagTagType) throws RelationalTagException {
+        logger.info("loading " + tags.size() + " relational tags from flat list");
+
+        // define defaults
+        tagTagType = tagTagType == null ? ConnectionType.TO_TAG_CHILD : tagTagType;
+
+        for (String tagName : tags.keySet()) {
+            RelationalTag keyTag = RelationalTag.newTag(tagName, true);
+
+            Object value = tags.get(tagName);
+
+            if (value instanceof String) {
+                // single value tag
+                RelationalTag valTag = RelationalTag.get((String) value, true);
+                RelationalTag.connect(keyTag, valTag, tagTagType);
+            }
+            else if (value instanceof Collection) {
+                // multiple value tags
+                for (String valName : ((Collection<String>) value)) {
+                    RelationalTag valTag = RelationalTag.get(valName, true);
+                    RelationalTag.connect(keyTag, valTag, tagTagType);
+                }
+            }
+            else {
+                throw new RelationalTagException(
+                    "unsupported target type " + value.getClass().getName(),
+                    ExceptionType.WRONG_TYPE
+                );
+            }
+        }
+
+        return new ArrayList<>(allTags.values());
     }
 
     public static RelationalTag loadTag() {
