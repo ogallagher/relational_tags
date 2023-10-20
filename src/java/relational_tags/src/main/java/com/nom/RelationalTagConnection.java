@@ -110,7 +110,7 @@ public class RelationalTagConnection {
         ? ((RelationalTag) this.target).getName()
         : this.target;
 
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        Gson gson = new GsonBuilder().create();
         return gson.toJson(new Object[] {
             source, this.type, target
         });
@@ -131,6 +131,14 @@ public class RelationalTagConnection {
         else {
             return false;
         }
+    }
+
+    protected static Set<ConnectionType> getTagTagTypes() {
+        return TAG_TAG_TYPES;
+    }
+
+    protected static Set<ConnectionType> getTagEntTypes() {
+        return TAG_ENT_TYPES;
     }
 
     public static ConnectionType inverseType(ConnectionType type) {

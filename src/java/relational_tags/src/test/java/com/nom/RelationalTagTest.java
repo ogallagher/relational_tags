@@ -3,7 +3,6 @@ package com.nom;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -13,8 +12,11 @@ import java.util.regex.Pattern;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.nom.RelationalTagConnection.ConnectionType;
 import com.nom.RelationalTagException.ExceptionType;
 
@@ -24,6 +26,14 @@ import com.nom.RelationalTagException.ExceptionType;
 public class RelationalTagTest 
 {
     protected static Logger logger = Logger.getLogger(RelationalTagTest.class.getName());
+
+    private static Map<String, Object> tagTree = new HashMap<>();
+
+    @BeforeClass
+    public static void setUpClass() {
+        tagTree.put("color", Arrays.asList("red", "green", "blue", "blue", "orange"));
+        tagTree.put("fruit", Arrays.asList("banana", "orange"));
+    }
 
     @Before
     public void setUp() {
@@ -134,8 +144,12 @@ public class RelationalTagTest
         RelationalTag.connect(new RelationalTag("t1"), e1, ConnectionType.TO_ENT);
         assertEquals("one tag in middle of test", RelationalTag.getAllTags().size(), 1);
 
+        assertTrue("entity has at least 1 tag", RelationalTag.known(e1));
+
         RelationalTag.clear();
         assertEquals("no tags at end of test", 0, RelationalTag.getAllTags().size());
+
+        assertTrue("entity is untagged", !RelationalTag.known(e1));
     }
 
     @Test
@@ -175,12 +189,76 @@ public class RelationalTagTest
 
     @Test
     public void loadTagsFromMap() throws RelationalTagException {
-        Map<String, Object> tagTree = new HashMap<>();
-        tagTree.put("color", Arrays.asList("red", "green", "blue", "blue", "orange"));
-        tagTree.put("fruit", Arrays.asList("banana", "orange"));
-
         RelationalTag.load(tagTree, null);
 
-        // TODO test graph structure
+        // test graph structure
+        assertTrue(
+            "red is in color connections", 
+            RelationalTag.get("red").getConnections().containsKey(RelationalTag.get("color"))
+        );
+        assertTrue(
+            "color is in red connections", 
+            RelationalTag.get("color").getConnections().containsKey(RelationalTag.get("red"))
+        );
+
+        RelationalTagConnection redToColor = RelationalTag.get("red").getConnections().get(RelationalTag.get("color"));
+        RelationalTagConnection colorToRed = RelationalTag.get("color").getConnections().get(RelationalTag.get("red"));
+        assertTrue("red-color is connection", redToColor instanceof RelationalTagConnection);
+        assertTrue(
+            "red-color " + redToColor + " equals color-red.inverse " + colorToRed,
+            redToColor.equals(colorToRed.inverse())
+        );
+
+        assertTrue(
+            "orange is child of color and fruit",
+            RelationalTag.get("color").getConnections().containsKey(RelationalTag.get("orange"))
+            && RelationalTag.get("fruit").getConnections().containsKey(RelationalTag.get("orange"))
+        );
+    }
+
+    @Test
+    public void saveLoadJSON() throws RelationalTagException {
+        RelationalTag.load(tagTree, null);
+
+        RelationalTag.get("red").connectTo(
+            new Entity("ripe", new String[] {"apple"}),
+            null
+        );
+
+        String json = RelationalTag.saveJSON();
+        logger.info(json);
+        assertEquals("saved JSON is string", String.class, json.getClass());
+        
+        RelationalTag.clear();
+
+        List<RelationalTag> tagsLoaded = RelationalTag.loadJSON(json, null, null);
+        for (RelationalTag tagLoaded : tagsLoaded) {
+            assertTrue(
+                tagLoaded + " not found in relational tags",
+                RelationalTag.getAllTags().containsKey(tagLoaded.getName())
+            );
+        }
+
+        assertTrue(
+            "color connected to red",
+            RelationalTag.get("color").getConnections().containsKey(RelationalTag.get("red"))
+        );
+        assertEquals(
+            "color-child is parent-child", 
+            ConnectionType.TO_TAG_CHILD, 
+            RelationalTag.get("color").getConnections().get(RelationalTag.get("red")).getType()
+        );
+
+        JsonObject entityLoaded = (
+            (JsonElement) RelationalTag.getTaggedEntities().keySet().toArray()[0]
+        ).getAsJsonObject();
+        logger.info("loaded entity " + entityLoaded);
+        assertTrue(
+            "saved and loaded simple entity",
+            entityLoaded.has("name") 
+            && entityLoaded.get("name").getAsString().equals("ripe")
+            && entityLoaded.has("fruit")
+            && entityLoaded.get("fruit").getAsJsonArray().get(0).getAsString().equals("apple")
+        );
     }
 }

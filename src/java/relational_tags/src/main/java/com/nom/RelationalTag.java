@@ -4,13 +4,21 @@ import java.lang.Runtime.Version;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.nom.RelationalTagConnection.ConnectionType;
 import com.nom.RelationalTagException.ExceptionType;
 
@@ -134,6 +142,10 @@ public class RelationalTag {
         return this.name;
     }
 
+    public Map<Object, RelationalTagConnection> getConnections() {
+        return connections;
+    }
+
     /**
      * Whether this tag has the same name as another. It is sometimes desirable to compare using
      * == operator instead, as it requires that both tags reference the same object in memory.
@@ -189,8 +201,12 @@ public class RelationalTag {
         }
     }
 
-    public static HashMap<String, RelationalTag> getAllTags() {
+    public static Map<String, RelationalTag> getAllTags() {
         return allTags;
+    }
+
+    public static Map<Object, HashMap<RelationalTag, RelationalTagConnection>> getTaggedEntities() {
+        return taggedEntities;
     }
 
     public static void config(boolean isCaseSensitive) {
@@ -444,7 +460,9 @@ public class RelationalTag {
     }
 
     /**
-     * Remove all tags and connections.
+     * Remove all tags and tagged entities.
+     * 
+     * Note this does not currently clear connections between tags, but {@link #delete(RelationalTag)} does.
      * 
      * @return Number of tags removed.
      */
@@ -543,20 +561,126 @@ public class RelationalTag {
         return new ArrayList<>(allTags.values());
     }
 
-    public static RelationalTag loadTag() {
-        throw new UnsupportedOperationException("not yet implemented");
+    public static RelationalTag loadTag(JsonObject tagJson, Boolean getIfExists, Boolean skipBadConns) throws RelationalTagException {
+        getIfExists = (getIfExists == null) ? true : getIfExists;
+        skipBadConns = (skipBadConns == null) ? false : skipBadConns;
+
+        RelationalTag tag = RelationalTag.newTag((String) tagJson.keySet().toArray()[0], getIfExists);
+
+        final Set<ConnectionType> tagTagTypes = RelationalTagConnection.getTagTagTypes();
+
+        for (JsonElement connArrEl : ((JsonArray) tagJson.get(tag.name))) {
+            JsonArray connArr = connArrEl.getAsJsonArray();
+            final ConnectionType connType = ConnectionType.valueOf(connArr.get(1).getAsString());
+
+            if (tagTagTypes.contains(connType)) {
+                // tag-tag
+                RelationalTag.connect(
+                    tag,
+                    RelationalTag.get(connArr.get(2).getAsString(), true),
+                    connType
+                );
+            }
+            else {
+                try {
+                    // tag-ent
+                    RelationalTag.connect(
+                        tag,
+                        connArr.get(2),
+                        connType
+                    );
+                } catch (IllegalStateException e) {
+                    RelationalTagException rtErr = new RelationalTagException(
+                        "loading a tag-entity connection for " + connArr.get(2) + " not supported: " 
+                        + new GsonBuilder().create().toJson(connArr), 
+                        ExceptionType.FORMAT
+                    );
+
+                    if (skipBadConns) {
+                        logger.warning(rtErr.toString());
+                    }
+                    else {
+                        throw rtErr;
+                    }
+                }
+            }
+        }
+
+        return tag;
     }
 
-    public static String saveTag() {
-        throw new UnsupportedOperationException("not yet implemented");
+    public static RelationalTag loadTag(String tagJson, Boolean getIfExists, Boolean skipBadConns) throws JsonSyntaxException, RelationalTagException {
+        return loadTag(JsonParser.parseString(tagJson).getAsJsonObject(), getIfExists, skipBadConns);
     }
 
-    public static List<RelationalTag> loadJSON() {
-        throw new UnsupportedOperationException("not yet implemented");
+    /**
+     * Export/serialize a tag as a json compatible string.
+     * 
+     * Inverse of {@link #loadTag(String, Boolean, Boolean)}.
+     * 
+     * @param tag
+     * @return
+     */
+    public static String saveTag(RelationalTag tag) {
+        return tag.toString();
     }
 
+    /**
+     * Load tags and connections from a json string.
+     * Any serialized entities from the json string that can be loaded will be loaded as {@link JsonElement}
+     * instances.
+     * 
+     * Inverse of {@link #saveJSON()}
+     * 
+     * @param jsonIn JSON input string.
+     * @param getIfExists Whether to allow name collisions with existing tags as referring to the same tags.
+     * @param skipBadConns Whether to skip bad connections and continue loading.
+     * @return List of loaded tags.
+     * @throws RelationalTagException
+     */
+    public static List<RelationalTag> loadJSON(String jsonIn, Boolean getIfExists, Boolean skipBadConns) throws RelationalTagException {
+        List<RelationalTag> loadedTags = new LinkedList<>();
+        
+        try {
+            for (JsonElement tagJson : ((JsonArray) JsonParser.parseString(jsonIn))) {
+                loadedTags.add(RelationalTag.loadTag(tagJson.getAsJsonObject(), getIfExists, skipBadConns));
+            }
+        }
+        catch (JsonSyntaxException e) {
+            throw new RelationalTagException(
+                "failed to parse tags json", 
+                ExceptionType.FORMAT, 
+                e
+            );
+        }
+
+        return loadedTags;
+    }
+
+    /**
+     * Save all tags and connections as a json string.
+     * 
+     * Inverse of {@link #loadJSON(String, boolean, boolean)}.
+     * 
+     * @return The json string.
+     */
     public static String saveJSON() {
-        throw new UnsupportedOperationException("not yet implemented");
+        StringBuilder out = new StringBuilder();
+        out.append('[');
+
+        final ArrayList<String> tags = new ArrayList<>(allTags.size());
+        allTags.values().forEach(new Consumer<RelationalTag>() {
+            @Override
+            public void accept(RelationalTag tag) {
+                tags.add(tag.toString());
+            }
+        });
+
+        out.append(String.join(",", tags));
+
+        out.append(']');
+
+        return out.toString();
     }
 
     /**

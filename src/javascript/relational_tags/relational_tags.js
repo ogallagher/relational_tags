@@ -488,7 +488,10 @@ RelationalTag.delete = function(tag) {
 }
 
 /**
- * Remove all tags and connections.
+ * Remove all tags and tagged entities.
+ * 
+ * Note this does not currently clear connections between tags, but {@link RelationalTag.delete}
+ * does.
  * 
  * @memberOf RelationalTag
  * 
@@ -660,6 +663,7 @@ RelationalTag.load_tag = function(tag_json, get_if_exists, skip_bad_conns) {
 		
 		if (RelationalTagConnection._TAG_TAG_TYPES.indexOf(conn_type) != -1) {
 			// tag-tag
+			// TODO where is target_tag declared?
 			target_tag = RelationalTag.get(conn_arr[2], true)
 			
 			RelationalTag.connect(
@@ -726,9 +730,10 @@ RelationalTag.save_tag = function(tag) {
 /**
  * @memberOf RelationalTag
  * 
- * @param {String} json_in paramDescription
- * @param {Boolean} get_if_exists paramDescription
- * @param {Boolean} skip_bad_conns paramDescription
+ * @param {String} json_in JSON input string.
+ * @param {Boolean} get_if_exists Whether to allow name collisions with existing tags as referring to the
+ * same tags.
+ * @param {Boolean} skip_bad_conns Whether to skip bad connections and continue loading.
  * 
  * @returns {Array} Array of loaded tags.
  * 
