@@ -2,8 +2,10 @@ package com.nom;
 
 import java.lang.Runtime.Version;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -235,7 +237,7 @@ public class RelationalTag {
                 ExceptionType.WRONG_TYPE
             );
         }
-        
+
         boolean targetIsTag = (target instanceof RelationalTag);
 
         // resolve type as default
@@ -714,19 +716,74 @@ public class RelationalTag {
      * @return List of nodes (tags and entities) along the discovered path, in order from a to b.
      */
     public static List<Object> graphPath(Object a, Object b) {
-        throw new UnsupportedOperationException("not yet implemented");
+        if (a == b || b == null) {
+            if (RelationalTag.known(a)) {
+                return Arrays.asList(a);
+            }
+            else {
+                return new ArrayList<>(0);
+            }
+        }
+        else if (RelationalTag.known(a) && RelationalTag.known(b)) {
+            List<Object> path = graphPath(a, b, new HashSet<>(0));
+            return (path == null) ? new ArrayList<>(0) : path;
+        }
+        else {
+            return new ArrayList<>(0);
+        }
     }
 
     /**
      * Helper function for {@link #graphPath(Object, Object)}.
-     * Assumes both {@code a} and {@code b} are in the same graph.
+     * Assumes both {@code a} and {@code b} are in the graph.
      * 
      * @param a
      * @param b
      * @param visits
      */
     private static List<Object> graphPath(Object a, Object b, Set<Object> visits) {
-        throw new UnsupportedOperationException("not yet implemented");
+        // add current node to visits
+        visits.add(a);
+
+        Set<? extends Object> connections = (a instanceof RelationalTag) 
+            ? ((RelationalTag) a).getConnections().keySet() 
+            : taggedEntities.get(a).keySet();
+
+        // search outward connections
+        List<Object> nexts = new LinkedList<>();
+        for (Object node : connections) {
+            if (node == b) {
+                // return path
+                List<Object> out = new LinkedList<>();
+                out.add(a);
+                out.add(b);
+                return out;
+            }
+            else if (!visits.contains(node)) {
+                nexts.add(node);
+            }
+            // else, skip visited node
+        }
+
+        if (nexts.isEmpty()) {
+            // no path found, no more unexplored paths
+            return null;
+        }
+        else {
+            // search next level
+            for (Object next : nexts) {
+                List<Object> path = graphPath(next, b, visits);
+
+                if (path != null) {
+                    // return path
+                    path.add(0, a);
+                    return path;
+                }
+            }
+
+            // no path found in further levels
+            return null;
+        }
     }
 
     /**
