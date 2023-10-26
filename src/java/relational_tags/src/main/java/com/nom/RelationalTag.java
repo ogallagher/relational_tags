@@ -229,6 +229,13 @@ public class RelationalTag {
      * @return Relational tag connection instance.
      */
     public static RelationalTagConnection connect(RelationalTag tag, Object target, ConnectionType connectionType) throws RelationalTagException {
+        if (tag == null) {
+            throw new RelationalTagException(
+                "cannot connect null tag", 
+                ExceptionType.WRONG_TYPE
+            );
+        }
+        
         boolean targetIsTag = (target instanceof RelationalTag);
 
         // resolve type as default

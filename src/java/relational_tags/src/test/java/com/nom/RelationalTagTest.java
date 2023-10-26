@@ -22,6 +22,8 @@ import com.nom.RelationalTagException.ExceptionType;
 
 /**
  * Unit tests for relational tags.
+ * 
+ * // TODO graph traversal: path and distance, search entities, search tags by entity, search tags by tag
  */
 public class RelationalTagTest 
 {
@@ -33,6 +35,15 @@ public class RelationalTagTest
     public static void setUpClass() {
         tagTree.put("color", Arrays.asList("red", "green", "blue", "blue", "orange"));
         tagTree.put("fruit", Arrays.asList("banana", "orange"));
+        tagTree.put("orange", "tangerine");
+    }
+
+    protected static Map<String, Object> getTagTree() {
+        if (tagTree.isEmpty()) {
+            setUpClass();
+        }
+
+        return tagTree;
     }
 
     @Before
@@ -199,6 +210,10 @@ public class RelationalTagTest
         assertTrue(
             "color is in red connections", 
             RelationalTag.get("color").getConnections().containsKey(RelationalTag.get("red"))
+        );
+        assertTrue(
+            "tangerine is orange",
+            RelationalTag.get("tangerine").getConnections().containsKey(RelationalTag.get("orange"))
         );
 
         RelationalTagConnection redToColor = RelationalTag.get("red").getConnections().get(RelationalTag.get("color"));
