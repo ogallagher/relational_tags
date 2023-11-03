@@ -140,7 +140,7 @@ class RelationalTag {
 		let connections_str = new Array(connections.length)
 		
 		for (let c=0; c < connections.length; c++) {
-			connections_str[c] = connections[c].toSring()
+			connections_str[c] = connections[c].toString()
 		}
 		
 		return `{"${this.name}": [${connections_str.join(',')}]}`
@@ -932,6 +932,7 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
 		tag = RelationalTag.get(tag, false)
 	}
 	
+	// TODO paths is scoped variable?
 	paths = RelationalTag._search_descendants(
 		tag,
 		search_direction,
@@ -958,8 +959,8 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
  * @param {String} search_direction Tag-tag connection direction for search. If default of
  * `RelationalTagConnection.TYPE_TO_TAG_PARENT`, for example, then all tags connected to this entity,
  * as well as all ancestors of those tags, are returned.
- * @param {Boolean} include_paths Whether to return as a dictionary mapping entities to their paths
- * from the start entity (`true`) or return as a list of entities (`false`).
+ * @param {Boolean} include_paths Whether to return as a dictionary mapping tags to their paths
+ * from the start entity (`true`) or return as a list of tags (`false`).
  * 
  * @returns {(Array|Map)}
  */
@@ -969,6 +970,7 @@ RelationalTag.search_tags_of_entity = function(entity, query, search_direction, 
 		? RelationalTagConnection.TYPE_TO_TAG_PARENT
 		: search_direction
 	
+	// TODO paths is scoped variable?
 	paths = RelationalTag._search_descendants(
 		entity,
 		search_direction,
@@ -1041,6 +1043,7 @@ RelationalTag._search_descendants = function(
 				
 				if (!visits.has(child) && (conn.type == direction || conn.type == RelationalTagConnection.TYPE_TO_ENT)) {
 					if (child instanceof RelationalTag) {
+						// TODO child_path is scoped variable?
 						child_path = path.concat([child])
 						if (include_tags && child.matches(tag_query)) {
 							// add tag as key in res

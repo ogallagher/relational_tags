@@ -581,6 +581,7 @@ describe('relational_tags', function() {
 			)
 			
 			// find leaf by fruit
+			// TODO scoped variables?
 			banana_leaf = rt.search_entities_by_tag(
 				'banana', 
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 

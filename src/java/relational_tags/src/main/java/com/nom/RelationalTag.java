@@ -4,12 +4,14 @@ import java.lang.Runtime.Version;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -699,7 +701,7 @@ public class RelationalTag {
      */
     public static boolean known(Object node) {
         return (node instanceof RelationalTag) 
-        ? RelationalTag.allTags.containsKey(node)
+        ? RelationalTag.allTags.containsKey(((RelationalTag) node).name)
         : RelationalTag.taggedEntities.containsKey(node);
     }
 
@@ -809,26 +811,45 @@ public class RelationalTag {
     }
     
     /**
-     * Find all entities directly or indirectly connected to this tag.
+     * Find all entities directly and indirectly connected to this tag.
      * 
      * @param tag Tag.
      * @param searchDirection Tag-tag connection direction for search.
+     * If default of {@link ConnectionType#TO_TAG_CHILD}, for example, then all entities connected to this tag,
+     * as well as all entities connected to descendants (instead of ancestors) of this tag, are returned.
      * @return List of connected entities.
+     * @throws RelationalTagException
      */
-    public static List<Object> searchEntitiesByTag(RelationalTag tag, ConnectionType searchDirection) {
-        throw new UnsupportedOperationException("not yet implemented");
+    public static List<Object> searchEntitiesByTag(RelationalTag tag, ConnectionType searchDirection) throws RelationalTagException {
+        return new ArrayList<Object>(searchEntityPathsByTag(tag, searchDirection).keySet());
     }
 
     /**
      * Find all entities directly or indirectly connected to this tag, including their paths to
      * the start tag.
      * 
-     * @param tag
+     * @param tag Tag.
      * @param searchDirection Tag-tag connection direction for search.
-     * @return Map of entities with their respective paths to the start tag.
+     * If default of {@link ConnectionType#TO_TAG_CHILD}, for example, then all entities connected to this tag,
+     * as well as all entities connected to descendants (instead of ancestors) of this tag, are returned.
+     * @return Map of entities with their respective paths from the start tag.
+     * @throws RelationalTagException
      */
-    public static HashMap<Object, List<Object>> searchEntityPathsByTag(RelationalTag tag, ConnectionType searchDirection) {
-        throw new UnsupportedOperationException("not yet implemented");
+    public static HashMap<Object, List<Object>> searchEntityPathsByTag(RelationalTag tag, ConnectionType searchDirection) throws RelationalTagException {
+        // search direction default TO_TAG_CHILD
+        if (searchDirection == null) {
+            searchDirection = ConnectionType.TO_TAG_CHILD;
+        }
+
+        return RelationalTag.searchDescendants(
+            tag, 
+            searchDirection, 
+            true, 
+            false, 
+            null, 
+            null, 
+            null
+        );
     }
     
     /**
@@ -839,14 +860,51 @@ public class RelationalTag {
      * @param query Optional string or regular expression for filtering tag names.
      * If the query is a string, only one tag will be returned, as it must be an exact match.
      * @param searchDirection Tag-tag connection direction for search.
+     * If default of {@link ConnectionType#TO_TAG_PARENT}, for example, then all tags connected to this entity, as well
+     * as all ancestors of those tags, are returned.
      * @return List of connected tags.
+     * @throws RelationalTagException
      */
-    public static List<RelationalTag> searchTagsOfEntity(Object entity, String query, ConnectionType searchDirection) {
-        throw new UnsupportedOperationException("not yet implemented");
+    public static List<RelationalTag> searchTagsOfEntity(Object entity, String query, ConnectionType searchDirection) throws RelationalTagException {
+        return new ArrayList<>(searchTagPathsOfEntity(entity, query, searchDirection).keySet());
     }
 
-    public static HashMap<RelationalTag, List<Object>> searchTagPathsByTag(Object entity, String query, ConnectionType searchDirection) {
-        throw new UnsupportedOperationException("not yet implemented");
+    /**
+     * Find all tags directly and indirectly connected to this entity that match the given 
+     * query string.
+     * 
+     * @param entity Entity from which to start the search.
+     * @param query Optional string or regular expression for filtering tag names.
+     * If the query is a string, only one tag will be returned, as it must be an exact match.
+     * @param searchDirection Tag-tag connection direction for search.
+     * If default of {@link ConnectionType#TO_TAG_PARENT}, for example, then all tags connected to this entity, as well
+     * as all ancestors of those tags, are returned.
+     * @return Map of tags with their respective paths from the start entity.
+     * @throws RelationalTagException
+     */
+    public static HashMap<RelationalTag, List<Object>> searchTagPathsOfEntity(Object entity, String query, ConnectionType searchDirection) throws RelationalTagException {
+        // search direction default to TO_TAG_PARENT
+        if (searchDirection == null) {
+            searchDirection = ConnectionType.TO_TAG_PARENT;
+        }
+
+        HashMap<Object, List<Object>> rawMap = RelationalTag.searchDescendants(
+            entity, 
+            searchDirection, 
+            false, 
+            true, 
+            query, 
+            null, 
+            null
+        );
+
+        // cast raw map keys to tags
+        HashMap<RelationalTag, List<Object>> tagMap = new HashMap<>(rawMap.size());
+        for (Entry<Object, List<Object>> entry : rawMap.entrySet()) {
+            tagMap.put((RelationalTag) entry.getKey(), entry.getValue());
+        }
+
+        return tagMap;
     }
 
     /**
@@ -868,6 +926,7 @@ public class RelationalTag {
      * @param visits Nodes already visited.
      * @param path Path from an original start node to the current node.
      * @return Map of search results, each node as the key and the corresponding path as the value.
+     * @throws RelationalTagException
      */
     private static HashMap<Object, List<Object>> searchDescendants(
         Object node,
@@ -877,8 +936,99 @@ public class RelationalTag {
         Object tagQuery,
         Set<Object> visits,
         List<Object> path
-    ) {
-        throw new UnsupportedOperationException("not yet implemented");
+    ) throws RelationalTagException {
+        // visits default empty set
+        if (visits == null) {
+            visits = new HashSet<>();
+        }
+
+        // path default single node
+        if (path == null) {
+            path = new LinkedList<>();
+            path.add(node);
+        }
+
+        if (RelationalTag.known(node)) {
+            // add current node to visits
+            visits.add(node);
+
+            // crete results map for paths to each child
+            HashMap<Object, List<Object>> results = new HashMap<>();
+
+            if (node instanceof RelationalTag) {
+                // is tag
+                RelationalTag tag = (RelationalTag) node;
+                for (Object child : tag.connections.keySet()) {
+                    RelationalTagConnection conn = tag.connections.get(child);
+
+                    if (!visits.contains(child) && (conn.getType().equals(direction) || conn.getType().equals(ConnectionType.TO_ENT))) {
+                        List<Object> childPath = new LinkedList<>(path);
+                        childPath.add(child);
+
+                        if (child instanceof RelationalTag) {
+                            RelationalTag childTag = (RelationalTag) child;
+
+                            if (includeTags && childTag.matches(tagQuery)) {
+                                // add tag as key in res
+                                results.put(childTag, childPath);
+                            }
+
+                            // search descendants of each child
+                            HashMap<Object, List<Object>> childResults = searchDescendants(
+                                child, 
+                                direction, 
+                                includeEntities, 
+                                includeTags, 
+                                tagQuery, 
+                                visits, 
+                                childPath
+                            );
+
+                            // add child results to results
+                            results.putAll(childResults);
+                        }
+                        else if (includeEntities) {
+                            // add ent as key in res
+                            results.put(child, childPath);
+                            // stop here; don't search tags of an entity
+                        }
+                    }
+                    // else, skip
+                }
+            }
+            else {
+                // is entity
+                // combine searches of all tags
+                for (RelationalTag tag : taggedEntities.get(node).keySet()) {
+                    if (tag.matches(tagQuery)) {
+                        // add tag to results
+                        results.put(tag, Collections.singletonList((Object) tag));
+                    }
+
+                    List<Object> childPath = new LinkedList<>();
+                    childPath.add(tag);
+
+                    HashMap<Object, List<Object>> tagResults = searchDescendants(
+                        node, 
+                        direction, 
+                        includeEntities, 
+                        includeTags, 
+                        tagQuery, 
+                        visits, 
+                        childPath
+                    );
+
+                    // add tag results to results
+                    results.putAll(tagResults);
+                }
+            }
+
+            return results;
+        }
+        else {
+            // not in graph; empty results
+            return new HashMap<>();
+        }
     }
     
     /**
