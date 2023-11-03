@@ -1009,7 +1009,7 @@ public class RelationalTag {
                     childPath.add(tag);
 
                     HashMap<Object, List<Object>> tagResults = searchDescendants(
-                        node, 
+                        tag, 
                         direction, 
                         includeEntities, 
                         includeTags, 
