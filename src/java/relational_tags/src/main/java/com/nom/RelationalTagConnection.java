@@ -42,7 +42,6 @@ public class RelationalTagConnection {
                 TAG_ENT_TYPES.add(type);
             }
         }
-        // logger.fine("RelationalTagConnection.ConnectionType = " + ConnectionType.values());
     }
 
     private Object source;

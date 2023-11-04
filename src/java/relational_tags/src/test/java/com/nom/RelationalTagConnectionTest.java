@@ -131,6 +131,7 @@ public class RelationalTagConnectionTest {
     @Test
     public void constructorTagTagConnections() throws RelationalTagException {
         // creates connections of all tag-tag types
+        logger.info("tag-tag types = " + RelationalTagConnection.getTagTagTypes());
         for (ConnectionType type : RelationalTagConnection.getTagTagTypes()) {
             RelationalTagConnection tagToTag = new RelationalTagConnection(
                 RelationalTag.get(apple), 
