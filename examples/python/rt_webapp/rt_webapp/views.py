@@ -67,7 +67,7 @@ def new_tag(request):
         connection = rt.connect(
             tag_or_connection=new_tag, 
             target=tag_target, 
-            connection_type=int(tag_connection)
+            connection_type=tag_connection
         )
         print(connection)
         
