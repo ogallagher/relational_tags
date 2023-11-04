@@ -6,7 +6,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -38,20 +37,11 @@ public class RelationalTagTest
     private static String rock = "rock";
     private static String leaf = "leaf";
 
-    private static Comparator<Object> reverseSorter;
-
     @BeforeClass
     public static void setUpClass() {
         tagTree.put("color", Arrays.asList("red", "green", "blue", "blue", "orange"));
         tagTree.put("fruit", Arrays.asList("banana", "orange"));
         tagTree.put("orange", "tangerine");
-
-        reverseSorter = new Comparator<Object>() {
-            @Override
-            public int compare(Object arg0, Object arg1) {
-                return arg0.toString().compareTo(arg1.toString());
-            }
-        };
     }
 
     protected static Map<String, Object> getTagTree() {
@@ -359,8 +349,8 @@ public class RelationalTagTest
         assertTrue(organic_fruit.equals(Arrays.asList(organic, fruit)));
         assertTrue(organic_apple.equals(Arrays.asList(organic, fruit, apple)));
 
-        List<Object> organic_apple_reversed = new ArrayList<>(organic_apple);
-        organic_apple_reversed.sort(reverseSorter);
+        List<Object> organic_apple_reversed = new ArrayList<>(organic_apple).reversed();
+        logger.info("organic-apple-reversed = " + formatPath(organic_apple_reversed));
         assertTrue(apple_organic.equals(organic_apple_reversed));
 
         assertEquals(RelationalTag.graphDistance(rock, null), -1);
