@@ -172,7 +172,7 @@ public class RelationalTag {
     /**
      * Whether this tag matches the given query string or regexp pattern.
      * 
-     * @param query String for exact match or regular expression to 
+     * @param query String for exact match or regular expression.
      * @return
      */
     public boolean matches(Object query) throws RelationalTagException {
@@ -538,7 +538,7 @@ public class RelationalTag {
      * @return List of all tags, both new and pre existing.
      * @throws RelationalTagException
      */
-    public static List<RelationalTag> load(Map<String, Object> tags, ConnectionType tagTagType) throws RelationalTagException {
+    public static List<RelationalTag> load(Map<String, ? extends Object> tags, ConnectionType tagTagType) throws RelationalTagException {
         logger.info("loading " + tags.size() + " relational tags from flat list");
 
         // define defaults
@@ -865,7 +865,7 @@ public class RelationalTag {
      * @return List of connected tags.
      * @throws RelationalTagException
      */
-    public static List<RelationalTag> searchTagsOfEntity(Object entity, String query, ConnectionType searchDirection) throws RelationalTagException {
+    public static List<RelationalTag> searchTagsOfEntity(Object entity, Object query, ConnectionType searchDirection) throws RelationalTagException {
         return new ArrayList<>(searchTagPathsOfEntity(entity, query, searchDirection).keySet());
     }
 
@@ -882,7 +882,7 @@ public class RelationalTag {
      * @return Map of tags with their respective paths from the start entity.
      * @throws RelationalTagException
      */
-    public static HashMap<RelationalTag, List<Object>> searchTagPathsOfEntity(Object entity, String query, ConnectionType searchDirection) throws RelationalTagException {
+    public static HashMap<RelationalTag, List<Object>> searchTagPathsOfEntity(Object entity, Object query, ConnectionType searchDirection) throws RelationalTagException {
         // search direction default to TO_TAG_PARENT
         if (searchDirection == null) {
             searchDirection = ConnectionType.TO_TAG_PARENT;
@@ -928,7 +928,7 @@ public class RelationalTag {
      * @return Map of search results, each node as the key and the corresponding path as the value.
      * @throws RelationalTagException
      */
-    private static HashMap<Object, List<Object>> searchDescendants(
+    protected static HashMap<Object, List<Object>> searchDescendants(
         Object node,
         ConnectionType direction,
         boolean includeEntities,

@@ -659,6 +659,7 @@ describe('relational_tags', function() {
 		
 		it('searches tags by tag', function() {
 			// find descendant tags of fruit
+			// TODO use scoped variables?
 			navel = rt.new('navel')
 			rt.connect(navel, rt.get('orange'), RelationalTagConnection.TYPE_TO_TAG_PARENT)
 			

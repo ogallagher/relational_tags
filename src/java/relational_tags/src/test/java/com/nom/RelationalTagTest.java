@@ -9,10 +9,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -297,7 +295,7 @@ public class RelationalTagTest
 
     private void setUpGraphTraversal() throws RelationalTagException {
         // load extended tag tree
-        Map<String, Object> traversalTagTree = new HashMap<>();
+        Map<String, List<Object>> traversalTagTree = new HashMap<>();
         traversalTagTree.put("fruit", Arrays.asList("banana", "cinnamon", "donut", "orange"));
         traversalTagTree.put("organic", Arrays.asList("fruit", "animal"));
         traversalTagTree.put("color", Arrays.asList("red", "green", "blue", "yellow", "orange"));
@@ -313,7 +311,7 @@ public class RelationalTagTest
         RelationalTag.connect(RelationalTag.get("orange"), leaf, null);
     }
 
-    private String formatPath(List<Object> path) {
+    private String formatPath(List<? extends Object> path) {
         List<String> nodes = new ArrayList<>(path.size());
 
         for (Object node : path) {
@@ -442,6 +440,25 @@ public class RelationalTagTest
     @Test
     public void graphTraversalSearchTagsByEntityQuery() throws RelationalTagException {
         setUpGraphTraversal();
+        
+        Pattern queryPattern = Pattern.compile(".*an.*");
+        HashMap<RelationalTag, List<Object>> leaf_tagsMap = RelationalTag.searchTagPathsOfEntity(
+            leaf, 
+            queryPattern, 
+            ConnectionType.TO_TAG_PARENT
+        );
+        logger.info("leaf tags matching " + queryPattern + ":\n" + formatSearch(leaf_tagsMap));
+        assertTrue(leaf_tagsMap.containsKey(RelationalTag.get("orange")));
+        assertTrue(leaf_tagsMap.containsKey(RelationalTag.get("organic")));
+        assertTrue(leaf_tagsMap.containsKey(RelationalTag.get("banana")));
+        assertFalse("green leaf tag matched query " + queryPattern, leaf_tagsMap.containsKey(RelationalTag.get("green")));
+
+        RelationalTag.connect(RelationalTag.newTag("bananas"), leaf, null);
+        String queryString = "banana";
+        List<RelationalTag> leaf_tagsList = RelationalTag.searchTagsOfEntity(leaf, queryString, null);
+        logger.info("leaf tags matching " + queryString + ": " + formatPath(leaf_tagsList));
+        assertEquals(0, leaf_tagsList.indexOf(RelationalTag.get("banana")));
+        assertEquals(-1, leaf_tagsList.indexOf(RelationalTag.get("bananas")));
     }
 
     @Test
@@ -449,5 +466,29 @@ public class RelationalTagTest
         setUpGraphTraversal();
 
         // find descendant tags of fruit
+        RelationalTag navel = RelationalTag.newTag("navel");
+        RelationalTag.connect(navel, RelationalTag.get("orange"), ConnectionType.TO_TAG_PARENT);
+
+        HashMap<Object, List<Object>> fruit_tags = RelationalTag.searchDescendants(
+            RelationalTag.get("fruit"), 
+            ConnectionType.TO_TAG_CHILD, 
+            false, 
+            true, 
+            null, 
+            null, 
+            null
+        );
+        logger.info("fruit tags:\n" + formatSearch(fruit_tags));
+        for (Object node : RelationalTag.get("fruit").getConnections().keySet()) {
+            if (RelationalTag.get("fruit").getConnections().get(node).getType().equals(ConnectionType.TO_TAG_CHILD)) {
+                RelationalTag tag = (RelationalTag) node;
+                assertTrue(tag.getName() + " not in fruit descendant tags", fruit_tags.containsKey(tag));
+            }
+            else {
+                assertFalse(node + " in fruit descendant tags", fruit_tags.containsKey(node));
+            }
+        }
+
+        assertTrue(fruit_tags.containsKey(navel));
     }
 }
