@@ -127,4 +127,125 @@ public class RelationalTagConnectionTest {
         assertFalse(RelationalTag.getTaggedEntities().get(fruitBasket).containsKey(fruit));
         assertFalse(red.getConnections().containsKey(apple));
     }
+
+    @Test
+    public void constructorTagTagConnections() throws RelationalTagException {
+        // creates connections of all tag-tag types
+        for (ConnectionType type : RelationalTagConnection.getTagTagTypes()) {
+            RelationalTagConnection tagToTag = new RelationalTagConnection(
+                RelationalTag.get(apple), 
+                RelationalTag.get(banana), 
+                type
+            );
+            assertEquals(
+                "conn type equals " + type,
+                tagToTag.getType(), type
+            );
+        }
+    }
+
+    @Test
+    public void constructorTagEntConnections() throws RelationalTagException {
+        // creates connections of all tag-ent types
+        RelationalTag tag = RelationalTag.get("apple");
+        Entity ent = fruitBasket;
+
+        RelationalTagConnection tagToEnt = new RelationalTagConnection(tag, ent, ConnectionType.TO_ENT);
+
+        assertEquals(tagToEnt.getType(), ConnectionType.TO_ENT);
+        assertEquals(tagToEnt.getSource(), tag);
+        assertEquals(tagToEnt.getTarget(), ent);
+
+        RelationalTagConnection entToTag = new RelationalTagConnection(ent, tag, ConnectionType.ENT_TO_TAG);
+
+        assertEquals(entToTag.getType(), ConnectionType.ENT_TO_TAG);
+        assertEquals(entToTag.getSource(), ent);
+        assertEquals(entToTag.getTarget(), tag);
+    }
+
+    @Test
+    public void inverseType() {
+        assertEquals(
+            "child-parent", 
+            ConnectionType.TO_TAG_CHILD, 
+            RelationalTagConnection.inverseType(ConnectionType.TO_TAG_PARENT)
+        );
+        assertEquals(
+            "parent-child",
+            ConnectionType.TO_TAG_PARENT,
+            RelationalTagConnection.inverseType(ConnectionType.TO_TAG_CHILD)
+        );
+        assertEquals(
+            "tag-tag double inverse",
+            ConnectionType.TO_TAG_CHILD,
+            RelationalTagConnection.inverseType(RelationalTagConnection.inverseType(ConnectionType.TO_TAG_CHILD))
+        );
+
+        assertEquals(
+            "tag-tag undirected",
+            ConnectionType.TO_TAG_UNDIRECTED,
+            RelationalTagConnection.inverseType(ConnectionType.TO_TAG_UNDIRECTED)
+        );
+
+        assertEquals(
+            "tag-ent",
+            ConnectionType.TO_ENT, 
+            RelationalTagConnection.inverseType(ConnectionType.ENT_TO_TAG)
+        );
+        assertEquals(
+            "ent-tag",
+            ConnectionType.ENT_TO_TAG,
+            RelationalTagConnection.inverseType(ConnectionType.TO_ENT)
+        );
+    }
+
+    @Test
+    public void inverseConnection() throws RelationalTagException {
+        // works for all connection types
+        RelationalTagConnection redApple = RelationalTag.connect(
+            RelationalTag.get("red"), 
+            RelationalTag.get("apple"), 
+            null
+        );
+        RelationalTagConnection appleRed = redApple.inverse();
+
+        assertEquals(
+            "tag-ent inverse type",
+            redApple.getType(),
+            appleRed.inverse().getType()
+        );
+        assertTrue(
+            "tag-ent inverse connection",
+            redApple.inverse().equals(appleRed)
+        );
+
+        RelationalTagConnection colorGreen = RelationalTag.connect(
+            RelationalTag.newTag("color"),
+            RelationalTag.get("green"),
+            ConnectionType.TO_TAG_CHILD
+        );
+        RelationalTagConnection greenColor = colorGreen.inverse();
+
+        assertEquals(
+            "parent-child inverse type",
+            colorGreen.getType(), greenColor.inverse().getType()
+        );
+        assertEquals(
+            "parent-child inverse connection",
+            colorGreen.inverse(),
+            greenColor
+        );
+        
+        colorGreen.type = ConnectionType.TO_TAG_UNDIRECTED;
+        greenColor = colorGreen.inverse();
+
+        assertEquals(
+            "tag-tag undirected inverse type",
+            colorGreen.getType(), greenColor.getType()
+        );
+        assertEquals(
+            "tag-tag undirected inverse connection",
+            colorGreen.inverse(), greenColor
+        );
+    }
 }

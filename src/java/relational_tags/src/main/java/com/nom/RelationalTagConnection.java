@@ -49,7 +49,7 @@ public class RelationalTagConnection {
 
     private Object target;
 
-    private ConnectionType type;
+    protected ConnectionType type;
 
     /**
      * Create a new connection instance. This should not be called directly, as it doesn't register
