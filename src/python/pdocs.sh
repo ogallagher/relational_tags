@@ -5,4 +5,4 @@
 source env/bin/activate
 
 # build pdocs
-python -m pdoc --html --force -o ../../docs/pdocs relational_tags
+python -m pdoc -o ../../docs/pdocs relational_tags

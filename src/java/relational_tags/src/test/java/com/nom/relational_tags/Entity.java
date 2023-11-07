@@ -1,4 +1,4 @@
-package com.nom;
+package com.nom.relational_tags;
 
 import java.util.logging.Logger;
 

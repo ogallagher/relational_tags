@@ -43,7 +43,14 @@ npm list
 
 ## Java
 
-Pending.
+Start by installing the dependencies from `pom.xml` using Maven. Most IDEs with Java support will have a quick way to do this.
+
+```bash
+# enter java source dir
+cd src/java/relational_tags
+# install dependencies and compile source to bytecode
+mvn build
+```
 
 # Installation
 
@@ -51,7 +58,7 @@ Pending.
 
 Available at [test.pypi.org](https://test.pypi.org/project/relational-tags-owengall/) as an installable package.
 
-```
+```shell
 pip install -i https://test.pypi.org/simple relational-tags-owengall
 ```
 
@@ -59,13 +66,22 @@ pip install -i https://test.pypi.org/simple relational-tags-owengall
 
 Available at [npmjs.com](https://www.npmjs.com/package/relational_tags) as an installable package.
 
-```
+```shell
 npm install relational_tags
 ```
 
 ## Java
 
-Pending.
+The java implementation is not yet distributed as a package, but you can build it locally with the maven `package` phase.
+
+```shell
+# enter java source dir
+cd src/java/relational_tags
+# create distributable jar package
+mvn package
+```
+
+The resulting jar will at `src/java/relational_tags/target/relational_tags-<version>.jar`.
 
 # Showcase
 
@@ -83,10 +99,16 @@ Generate docs at `docs/pdocs/` using the `src/python/pdocs.sh` script, or someth
 
 Generate docs at `docs/jsdocs/` using the `src/javascript/jsdocs.sh` script, or something similar.
 
+## Java
+
+Generate docs at `docs/javadocs/` using the `src/java/javadocs.sh` script, or something similar.
+
 # Usage
 
 The API aims to be as consistent across languages as possible. Below are scripts that generate equivalent
 relational tagging systems in each language. For more examples, see code samples in `examples/` and test cases in `tests/` (though be aware that the tests often circumvent the public API and use hidden members, or don't take advantage of things that were added to the library later).
+
+## python
 
 ```python
 import relational_tags as rt
@@ -146,6 +168,8 @@ rt.search_entities_by_tag('fruit')
 
 # TODO save and load via json
 ```
+
+## javascript
 
 ```javascript
 const rt = require('relational_tags')
@@ -214,6 +238,12 @@ rt.search_tags_of_entity(ball, /.*or.*/)    // ball tags containing or
 let json = rt.save_json()
 rt.clear()
 rt.load_json(json)
+```
+
+## java
+
+```java
+// equivalent java example pending
 ```
 
 # Theory

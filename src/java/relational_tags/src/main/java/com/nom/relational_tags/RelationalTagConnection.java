@@ -1,4 +1,4 @@
-package com.nom;
+package com.nom.relational_tags;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -14,10 +14,25 @@ public class RelationalTagConnection {
      * Relational tag exception types.
      */
     public enum ConnectionType {
+        /**
+         * Undirected connection between tags.
+         */
         TO_TAG_UNDIRECTED,
+        /**
+         * Connection from a child tag to a parent tag.
+         */
         TO_TAG_PARENT,
+        /**
+         * Connection from a parent tag to a child tag.
+         */
         TO_TAG_CHILD,
+        /**
+         * Connection from a tag to an entity.
+         */
         TO_ENT,
+        /**
+         * Connection from an entity to a tag.
+         */
         ENT_TO_TAG
     }
 

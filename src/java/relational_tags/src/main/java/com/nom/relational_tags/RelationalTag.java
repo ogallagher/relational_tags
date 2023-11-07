@@ -1,4 +1,4 @@
-package com.nom;
+package com.nom.relational_tags;
 
 import java.lang.Runtime.Version;
 import java.util.ArrayList;
@@ -23,8 +23,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
-import com.nom.RelationalTagConnection.ConnectionType;
-import com.nom.RelationalTagException.ExceptionType;
+import com.nom.relational_tags.RelationalTagConnection.ConnectionType;
+import com.nom.relational_tags.RelationalTagException.ExceptionType;
 
 /**
  * A relational tag instance can be connected to an entity to categorize it, and also be connected

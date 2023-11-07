@@ -27,6 +27,7 @@ dist/
 # generated docs
 docs/jsdocs/
 docs/pdocs/
+docs/javadocs
 
 # sqlite
 **/*.sqlite3
@@ -36,3 +37,6 @@ secret/
 
 # vscode
 .vscode/
+
+# mac os
+**/.DS_Store
