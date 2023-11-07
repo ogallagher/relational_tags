@@ -5,4 +5,7 @@
 source env/bin/activate
 
 # build pdocs
-python -m pdoc -o ../../docs/pdocs relational_tags
+out_dir="../../docs/pdocs"
+python -m pdoc -o "$out_dir" relational_tags
+
+echo "generated python docs at $out_dir/index.html"
