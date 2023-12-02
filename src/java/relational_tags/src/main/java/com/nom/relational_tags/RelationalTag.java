@@ -1,4 +1,4 @@
-package com.nom;
+package com.nom.relational_tags;
 
 import java.lang.Runtime.Version;
 import java.util.ArrayList;
@@ -23,8 +23,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
-import com.nom.RelationalTagConnection.ConnectionType;
-import com.nom.RelationalTagException.ExceptionType;
+import com.nom.relational_tags.RelationalTagConnection.ConnectionType;
+import com.nom.relational_tags.RelationalTagException.ExceptionType;
 
 /**
  * A relational tag instance can be connected to an entity to categorize it, and also be connected
@@ -101,6 +101,10 @@ public class RelationalTag {
      */
     public RelationalTagConnection connectTo(Object other, ConnectionType connectionType) throws RelationalTagException {
         return RelationalTag.connect(this, other, connectionType);
+    }
+
+    public RelationalTagConnection connectTo(Object other) throws RelationalTagException {
+        return RelationalTag.connect(this, other, null);
     }
 
     /**
@@ -270,6 +274,10 @@ public class RelationalTag {
         }
 
         return conn;
+    }
+
+    public static RelationalTagConnection connect(RelationalTag tag, Object target) throws RelationalTagException {
+        return connect(tag, target, null);
     }
 
     /**
@@ -952,7 +960,7 @@ public class RelationalTag {
             // add current node to visits
             visits.add(node);
 
-            // crete results map for paths to each child
+            // create results map for paths to each child
             HashMap<Object, List<Object>> results = new HashMap<>();
 
             if (node instanceof RelationalTag) {

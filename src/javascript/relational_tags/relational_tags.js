@@ -1165,8 +1165,7 @@ class RelationalTagConnection {
 	 * Create a new connection instance. This should not be called directly, as it doesn't register
 	 * itself with the source or target. Use {@link RelationalTag#connect} instead.
 	 * 
-	 * @param {RelationalTag} source
-	 * TODO source is not always RelationalTag type?
+	 * @param {RelationalTag|Object} source
 	 * 
 	 * @param {RelationalTag|Object} target
 	 * 
@@ -1179,15 +1178,45 @@ class RelationalTagConnection {
 		this.source = source
 		this.target = target
 		this.type = type
-		
-		if (
-			RelationalTagConnection._TAG_TAG_TYPES.indexOf(type) != -1 && 
-			!(target instanceof RelationalTag)
-		) {
+
+		// validate type
+		let source_tag = source instanceof RelationalTag
+		let target_tag = target instanceof RelationalTag
+		let type_tag = RelationalTagConnection._TAG_TAG_TYPES.indexOf(type) != -1
+		let type_ent = RelationalTagConnection._TAG_ENT_TYPES.indexOf(type) != -1
+		if (source_tag && target_tag) {
+			if (!type_tag) {
+				throw new RelationalTagException(
+					`cannot create ${type} tags connection with ${source} and ${target}`, 
+					RelationalTagException.TYPE_WRONG_TYPE
+				)
+			}
+		}
+		else if (!source_tag && !target_tag) {
 			throw new RelationalTagException(
-				`cannot create ${type} connection with entity ${target}`, 
+				`cannot create ${type} connection between entities ${source} and ${target}`, 
 				RelationalTagException.TYPE_WRONG_TYPE
 			)
+		}
+		else {
+			if (!type_ent) {
+				throw new RelationalTagException(
+					`cannot create ${type} connection without entities between ${source} and ${target}`, 
+					RelationalTagException.TYPE_WRONG_TYPE
+				)
+			}
+			else if (source_tag && type == RelationalTagConnection.TYPE_ENT_TO_TAG) {
+				throw new RelationalTagException(
+					`cannot create ${type} from tag ${source} to entity ${target}`, 
+					RelationalTagException.TYPE_WRONG_TYPE
+				)
+			}
+			else if (target_tag && type == RelationalTagConnection.TYPE_TO_ENT) {
+				throw new RelationalTagException(
+					`cannot create ${type} from entity ${source} to tag ${target}`,
+					RelationalTagException.TYPE_WRONG_TYPE
+				)
+			}
 		}
 	}
 	
@@ -1286,11 +1315,10 @@ for (let type of RelationalTagConnection.TYPES) {
 	
 	RelationalTagConnection[`TYPE_${T}`] = T
 	
-	if (T.indexOf('TAG') != -1) {
+	if (T.indexOf('TAG_') != -1) {
 		RelationalTagConnection._TAG_TAG_TYPES.push(T)
 	}
-	
-	if (T.indexOf('ENT') != -1) {
+	else {
 		RelationalTagConnection._TAG_ENT_TYPES.push(T)
 	}
 }

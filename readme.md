@@ -6,7 +6,7 @@ This repository contains implementations of relational tags organization in vari
 
 # Development
 
-## Python
+## python
 
 Some auxiliary scripts assume that you're using a virtual environment named `env/`. To set this up, run the following.
 
@@ -28,7 +28,7 @@ python -m pip install -r relational_tags/requirements.txt
 python -m pip list
 ```
 
-## Javascript
+## javascript
 
 Start by installing the development dependencies.
 
@@ -41,31 +41,47 @@ npm install
 npm list
 ```
 
-## Java
+## java
 
-Pending.
+Start by installing the dependencies from `pom.xml` using Maven. Most IDEs with Java support will have a quick way to do this.
+
+```bash
+# enter java source dir
+cd src/java/relational_tags
+# install dependencies and compile source to bytecode
+mvn build
+```
 
 # Installation
 
-## Python
+## python
 
 Available at [test.pypi.org](https://test.pypi.org/project/relational-tags-owengall/) as an installable package.
 
-```
+```shell
 pip install -i https://test.pypi.org/simple relational-tags-owengall
 ```
 
-## Javascript
+## javascript
 
 Available at [npmjs.com](https://www.npmjs.com/package/relational_tags) as an installable package.
 
-```
+```shell
 npm install relational_tags
 ```
 
-## Java
+## java
 
-Pending.
+The java implementation is not yet distributed as a package, but you can build it locally with the maven `package` phase.
+
+```shell
+# enter java source dir
+cd src/java/relational_tags
+# create distributable jar package
+mvn package
+```
+
+The resulting jar will at `src/java/relational_tags/target/relational_tags-<version>.jar`.
 
 # Showcase
 
@@ -75,18 +91,24 @@ Pending.
 
 # Generated Documentation
 
-## Python
+## python
 
 Generate docs at `docs/pdocs/` using the `src/python/pdocs.sh` script, or something similar.
 
-## Javascript
+## javascript
 
 Generate docs at `docs/jsdocs/` using the `src/javascript/jsdocs.sh` script, or something similar.
+
+## java
+
+Generate docs at `docs/javadocs/` using the `src/java/javadocs.sh` script, or something similar.
 
 # Usage
 
 The API aims to be as consistent across languages as possible. Below are scripts that generate equivalent
 relational tagging systems in each language. For more examples, see code samples in `examples/` and test cases in `tests/` (though be aware that the tests often circumvent the public API and use hidden members, or don't take advantage of things that were added to the library later).
+
+## python
 
 ```python
 import relational_tags as rt
@@ -146,6 +168,8 @@ rt.search_entities_by_tag('fruit')
 
 # TODO save and load via json
 ```
+
+## javascript
 
 ```javascript
 const rt = require('relational_tags')
@@ -214,6 +238,108 @@ rt.search_tags_of_entity(ball, /.*or.*/)    // ball tags containing or
 let json = rt.save_json()
 rt.clear()
 rt.load_json(json)
+```
+
+## java
+
+See `examples/java/rt_app/readme.md` for instructions to install the `relational_tags` package as a dependency from the local jar file.
+
+```java
+package com.nom.relational_tags.example;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
+
+import com.nom.relational_tags.RelationalTag;
+import com.nom.relational_tags.RelationalTagException;
+import com.nom.relational_tags.RelationalTagConnection.ConnectionType;
+
+/**
+ * Example app using relational tags.
+ */
+public class RTApp {
+    private static final Logger logger = Logger.getLogger(RTApp.class.getName());
+
+    private static Map<String, List<String>> tagTreeSeed = new HashMap<>();
+
+    static {
+        tagTreeSeed.put("color", Arrays.asList("red", "orange", "yellow", "green", "blue"));
+        tagTreeSeed.put("fruit", Arrays.asList("apple", "banana", "cherry", "orange"));
+    }
+
+    protected static class Thing {
+        protected String name;
+        public Thing(String name) { this.name = name; }
+        public String toString() { return this.name; }
+    }
+
+    public static void main( String[] args ) throws RelationalTagException {
+        // initial planned tags hierarchy
+        RelationalTag.load(tagTreeSeed, ConnectionType.TO_TAG_CHILD);
+
+        // create some things
+
+        Thing glove = new Thing("glove");
+        Thing ball = new Thing("ball");
+
+        // tag them
+
+        RelationalTag.connect(RelationalTag.get("red"), glove);
+
+        RelationalTag.get("orange").connectTo(ball, null);
+
+        logger.info(String.valueOf(RelationalTag.get("red").getConnections().containsKey(glove)));
+        // true; RelationalTag.connections is a Map where each key is a target
+
+        // use graph distance to measure likeness
+
+        logger.info(String.valueOf(RelationalTag.graphDistance(RelationalTag.get("orange"), ball)));
+        // 1    orange-ball
+
+        logger.info(String.valueOf(RelationalTag.graphDistance(RelationalTag.get("color"), ball)));
+        // 2    color-orange-ball
+
+        logger.info(String.valueOf(RelationalTag.graphDistance(RelationalTag.get("fruit"), ball)));
+        // 2    fruit-orange-ball
+
+        logger.info(String.valueOf(RelationalTag.graphDistance(glove, ball)));
+        // 4    glove-red-color-orange-ball
+
+        // use search to find entities by tag
+        List<? extends Object> resultTags = RelationalTag.searchEntitiesByTag(RelationalTag.get("orange"), null);
+        // [ball]
+        resultTags = RelationalTag.searchEntitiesByTag(RelationalTag.get("color"), null);
+        // [glove, ball]
+        resultTags = RelationalTag.searchEntitiesByTag(RelationalTag.get("fruit"), null);
+        // [ball]
+
+        // use search to find tags of entity
+        // all transitively connected tags to ball
+        resultTags = RelationalTag.searchTagsOfEntity(ball, null, null);
+        // [orange, color, fruit]
+
+        // what color is glove?
+        Map<RelationalTag, List<Object>> resultPaths = RelationalTag.searchTagPathsOfEntity(
+            glove, 
+            "color", 
+            ConnectionType.TO_TAG_PARENT
+        );
+        // {color => [orange, red]}
+
+        // ball tags containing or
+        resultTags = RelationalTag.searchTagsOfEntity(ball, Pattern.compile(".*or.*"), null);
+        // [orange, color]
+
+        // save and load via json
+        String json = RelationalTag.saveJSON();
+        RelationalTag.clear();
+        RelationalTag.loadJSON(json, null, null);
+    }
+}
 ```
 
 # Theory

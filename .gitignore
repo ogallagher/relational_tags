@@ -17,6 +17,8 @@ examples/python/rt_webapp/**/migrations/
 
 # java
 src/java/**/target/
+examples/java/**/target/
+examples/java/rt_app/lib/
 
 # videos
 docs/*.mp4
@@ -27,6 +29,7 @@ dist/
 # generated docs
 docs/jsdocs/
 docs/pdocs/
+docs/javadocs
 
 # sqlite
 **/*.sqlite3
@@ -36,3 +39,6 @@ secret/
 
 # vscode
 .vscode/
+
+# mac os
+**/.DS_Store

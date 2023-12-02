@@ -15,7 +15,7 @@ import json
 
 # module vars
 
-VERSION:str = '0.1.1'
+VERSION:str = '0.1.2'
 """Package version.
 """
 
@@ -1157,7 +1157,10 @@ class RelationalTagConnection:
     # end load_connection
     
     def __init__(self, source:RelationalTag, target:Union[RelationalTag,Any], connection_type=TYPE_TO_ENT):
-        """RelationalTagConnection constructor.
+        """RelationalTagConnection constructor to create a new connection instance.
+
+        This should not be called directly, as it doesn't register itself with the source or target.
+        Use `RelationalTag.connect` instead.
         """
         
         cls = type(self)
@@ -1174,11 +1177,41 @@ class RelationalTagConnection:
         """Connection type. See `_TYPES` for possible values.
         """
         
-        if self.type in cls._TAG_TAG_TYPES and not isinstance(target,RelationalTag):
+        # validate type
+        source_tag = isinstance(source, RelationalTag)
+        target_tag = isinstance(target, RelationalTag)
+        type_tag = self.type in self._TAG_TAG_TYPES
+        type_ent = self.type in self._TAG_ENT_TYPES
+        if source_tag and target_tag:
+            if not type_tag:
+                raise RelationalTagError(
+                    f'cannot create {self.type} tags connection with {source} and {target}',
+                    RelationalTagError.TYPE_WRONG_TYPE
+                )
+        # end tag-tag
+        elif not source_tag and not target_tag:
             raise RelationalTagError(
-                f'cannot create {self.type} connection with non-tag {target}',
+                f'cannot create {self.type} connection between entities {source} and {target}',
                 RelationalTagError.TYPE_WRONG_TYPE
             )
+        # end ent-ent
+        else:
+            if not type_ent:
+                raise RelationalTagError(
+                    f'cannot create {self.type} connection without entities between {source} and {target}',
+                    RelationalTagError.TYPE_WRONG_TYPE
+                )
+            elif source_tag and self.type == RelationalTagConnection.TYPE_ENT_TO_TAG:
+                raise RelationalTagError(
+                    f'cannot create {self.type} from tag {source} to entity {target}',
+                    RelationalTagError.TYPE_WRONG_TYPE
+                )
+            elif target_tag and self.type == RelationalTagConnection.TYPE_TO_ENT:
+                raise RelationalTagError(
+                    f'cannot create {self.type} from entity {source} to tag {target}',
+					RelationalTagError.TYPE_WRONG_TYPE
+                )
+        # end mixed
     # end __init__
     
     def __str__(self) -> str:

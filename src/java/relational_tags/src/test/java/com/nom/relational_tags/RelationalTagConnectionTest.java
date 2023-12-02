@@ -1,4 +1,4 @@
-package com.nom;
+package com.nom.relational_tags;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -10,8 +10,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.nom.RelationalTagConnection.ConnectionType;
-import com.nom.RelationalTagException.ExceptionType;
+import com.nom.relational_tags.RelationalTagConnection.ConnectionType;
+import com.nom.relational_tags.RelationalTagException.ExceptionType;
 
 public class RelationalTagConnectionTest {
     protected static Logger logger = Logger.getLogger(RelationalTagTest.class.getName());
@@ -162,6 +162,64 @@ public class RelationalTagConnectionTest {
         assertEquals(entToTag.getType(), ConnectionType.ENT_TO_TAG);
         assertEquals(entToTag.getSource(), ent);
         assertEquals(entToTag.getTarget(), tag);
+    }
+
+    @Test
+    public void constructorInvalidConnections() throws RelationalTagException {
+        RelationalTag t1 = RelationalTag.newTag("one");
+        RelationalTag t2 = RelationalTag.newTag("two");
+        String ent = "ent";
+
+        try {
+            new RelationalTagConnection(t1, t2, ConnectionType.ENT_TO_TAG);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "tag ent-to-tag tag",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+        try {
+            new RelationalTagConnection(t1, ent, ConnectionType.TO_TAG_PARENT);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "tag to-tag-parent ent",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+        try {
+            new RelationalTagConnection(ent, ent, ConnectionType.ENT_TO_TAG);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "ent to-tag ent",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+        try {
+            new RelationalTagConnection(t1, ent, ConnectionType.ENT_TO_TAG);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "tag ent-to-tag ent",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+        try {
+            new RelationalTagConnection(ent, t2, ConnectionType.TO_ENT);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "ent to-ent tag",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
     }
 
     @Test

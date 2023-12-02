@@ -798,6 +798,53 @@ describe('relational_tags', function() {
 				assert.equal(ent_to_tag.source, ent)
 				assert.equal(ent_to_tag.target, tag)
 			})
+
+			it('prevents invalid connections', function() {
+				let t1 = rt.new('one')
+				let t2 = rt.new('two')
+				let ent = 'ent'
+
+				assert.throws(
+					function() { new RelationalTagConnection(t1, t2, RelationalTagConnection.TYPE_ENT_TO_TAG) },
+					{
+						name: 'RelationalTagException',
+						type: RelationalTagException.TYPE_WRONG_TYPE
+					},
+					'tag ent-to-tag tag'
+				)
+				assert.throws(
+					function() { new RelationalTagConnection(t1, ent, RelationalTagConnection.TYPE_TO_TAG_PARENT)},
+					{
+						name: 'RelationalTagException',
+						type: RelationalTagException.TYPE_WRONG_TYPE
+					},
+					'tag to-tag-parent ent'
+				)
+				assert.throws(
+					function() { new RelationalTagConnection(ent, ent, RelationalTagConnection.TYPE_ENT_TO_TAG) },
+					{
+						name: 'RelationalTagException',
+						type: RelationalTagException.TYPE_WRONG_TYPE
+					},
+					'ent to-tag ent'
+				)
+				assert.throws(
+					function() { new RelationalTagConnection(t1, ent, RelationalTagConnection.TYPE_ENT_TO_TAG)},
+					{
+						name: 'RelationalTagException',
+						type: RelationalTagException.TYPE_WRONG_TYPE
+					},
+					'tag to-tag ent'
+				)
+				assert.throws(
+					function() { new RelationalTagConnection(ent, t2, RelationalTagConnection.TYPE_TO_ENT)},
+					{
+						name: 'RelationalTagException',
+						type: RelationalTagException.TYPE_WRONG_TYPE
+					},
+					'ent to-ent tag'
+				)
+			})
 		})
 		
 		describe('inverse_type', function() {

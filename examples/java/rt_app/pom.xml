@@ -4,17 +4,20 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.nom</groupId>
-  <artifactId>relational_tags</artifactId>
-  <version>0.1.1</version>
+  <groupId>com.nom.relational_tags.example</groupId>
+  <artifactId>rt_app</artifactId>
+  <!-- rt_app example version -->
+  <version>0.1.0</version>
 
-  <name>relational_tags</name>
+  <name>rt_app</name>
   <url>https://github.com/ogallagher/relational_tags</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
+    <!-- relational tags library version -->
+    <lib.relational_tags.version>0.1.1</lib.relational_tags.version>
   </properties>
 
   <dependencies>
@@ -23,30 +26,37 @@
       <artifactId>gson</artifactId>
       <version>2.10.1</version>
     </dependency>
-
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.11</version>
-      <scope>test</scope>
+      <groupId>com.nom.relational_tags</groupId>
+      <artifactId>relational_tags</artifactId>
+      <version>${lib.relational_tags.version}</version>
     </dependency>
   </dependencies>
 
   <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.6.0</version>
-        <configuration>
-          <reportOutputDirectory>${project.build.directory}</reportOutputDirectory>
-          <destDir>javadocs</destDir>
-          <overview>${basedir}/overview.html</overview>
-        </configuration>
-      </plugin>
-    </plugins>
-    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
+    <pluginManagement>
       <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>2.5.2</version>
+          <executions>
+            <execution>
+              <?m2e execute onConfiguration?>
+              <phase>initialize</phase>
+              <goals>
+                  <goal>install-file</goal>
+              </goals>
+              <configuration>
+                  <file>${basedir}/lib/relational_tags-${lib.relational_tags.version}.jar</file>
+                  <groupId>com.nom.relational_tags</groupId>
+                  <artifactId>relational_tags</artifactId>
+                  <version>${lib.relational_tags.version}</version>
+                  <packaging>jar</packaging>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
         <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
         <plugin>
           <artifactId>maven-clean-plugin</artifactId>
@@ -68,10 +78,6 @@
         <plugin>
           <artifactId>maven-jar-plugin</artifactId>
           <version>3.0.2</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-install-plugin</artifactId>
-          <version>2.5.2</version>
         </plugin>
         <plugin>
           <artifactId>maven-deploy-plugin</artifactId>

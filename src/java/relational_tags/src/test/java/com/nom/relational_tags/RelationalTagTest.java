@@ -1,4 +1,4 @@
-package com.nom;
+package com.nom.relational_tags;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -21,8 +21,8 @@ import org.junit.Test;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.nom.RelationalTagConnection.ConnectionType;
-import com.nom.RelationalTagException.ExceptionType;
+import com.nom.relational_tags.RelationalTagConnection.ConnectionType;
+import com.nom.relational_tags.RelationalTagException.ExceptionType;
 
 /**
  * Unit tests for relational tags.
