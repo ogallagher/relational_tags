@@ -165,6 +165,64 @@ public class RelationalTagConnectionTest {
     }
 
     @Test
+    public void constructorInvalidConnections() throws RelationalTagException {
+        RelationalTag t1 = RelationalTag.newTag("one");
+        RelationalTag t2 = RelationalTag.newTag("two");
+        String ent = "ent";
+
+        try {
+            new RelationalTagConnection(t1, t2, ConnectionType.ENT_TO_TAG);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "tag ent-to-tag tag",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+        try {
+            new RelationalTagConnection(t1, ent, ConnectionType.TO_TAG_PARENT);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "tag to-tag-parent ent",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+        try {
+            new RelationalTagConnection(ent, ent, ConnectionType.ENT_TO_TAG);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "ent to-tag ent",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+        try {
+            new RelationalTagConnection(t1, ent, ConnectionType.ENT_TO_TAG);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "tag ent-to-tag ent",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+        try {
+            new RelationalTagConnection(ent, t2, ConnectionType.TO_ENT);
+        }
+        catch (Exception e) {
+            assertEquals(
+                "ent to-ent tag",
+                RelationalTagException.class,
+                e.getClass()
+            );
+        }
+    }
+
+    @Test
     public void inverseType() {
         assertEquals(
             "child-parent", 

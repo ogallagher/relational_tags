@@ -1201,12 +1201,12 @@ class RelationalTagConnection:
                     f'cannot create {self.type} connection without entities between {source} and {target}',
                     RelationalTagError.TYPE_WRONG_TYPE
                 )
-            elif source_tag and type == RelationalTagConnection.TYPE_ENT_TO_TAG:
+            elif source_tag and self.type == RelationalTagConnection.TYPE_ENT_TO_TAG:
                 raise RelationalTagError(
-                    f'cannot create {type} from tag {source} and entity {target}',
+                    f'cannot create {self.type} from tag {source} to entity {target}',
                     RelationalTagError.TYPE_WRONG_TYPE
                 )
-            elif target_tag and type == RelationalTagConnection.TYPE_TO_ENT:
+            elif target_tag and self.type == RelationalTagConnection.TYPE_TO_ENT:
                 raise RelationalTagError(
                     f'cannot create {self.type} from entity {source} to tag {target}',
 					RelationalTagError.TYPE_WRONG_TYPE

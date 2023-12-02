@@ -6,6 +6,7 @@ import java.util.logging.Logger;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.nom.relational_tags.RelationalTagException.ExceptionType;
 
 public class RelationalTagConnection {
     private static final Logger logger = Logger.getLogger(RelationalTag.class.getName());
@@ -49,11 +50,10 @@ public class RelationalTagConnection {
 
     static {
         for (ConnectionType type : ConnectionType.values()) {
-            if (type.name().indexOf("TAG") != -1) {
+            if (type.name().indexOf("TAG_") != -1) {
                 TAG_TAG_TYPES.add(type);
             }
-
-            if (type.name().indexOf("ENT") != -1) {
+            else {
                 TAG_ENT_TYPES.add(type);
             }
         }
@@ -78,11 +78,44 @@ public class RelationalTagConnection {
         this.target = target;
         this.type = type;
 
-        if (TAG_TAG_TYPES.contains(type) && !(target instanceof RelationalTag)) {
+        // validate type
+        boolean sourceTag = source instanceof RelationalTag;
+        boolean targetTag = target instanceof RelationalTag;
+        boolean typeTag = TAG_TAG_TYPES.contains(type);
+        boolean typeEnt = TAG_ENT_TYPES.contains(type);
+        if (sourceTag && targetTag) {
+            if (!typeTag) {
+                throw new RelationalTagException(
+                    "cannot create " + type + " tags connection with " + source + " and " + target, 
+                    ExceptionType.WRONG_TYPE
+                );
+            }
+        }
+        else if (!sourceTag && !targetTag) {
             throw new RelationalTagException(
-                "cannot create " + type.name() + " connection with entity " + target, 
-                RelationalTagException.ExceptionType.WRONG_TYPE
+                "cannot create " + type + " connection between entities " + source + " and " + target, 
+                ExceptionType.WRONG_TYPE
             );
+        }
+        else {
+            if (!typeEnt) {
+                throw new RelationalTagException(
+                    "cannot create " + type + " connection without entities between " + source + " and " + target, 
+                    ExceptionType.WRONG_TYPE
+                );
+            }
+            else if (sourceTag && type.equals(ConnectionType.ENT_TO_TAG)) {
+                throw new RelationalTagException(
+                    "cannot create " + type + " connection from tag " + source + " to entity " + target, 
+                    ExceptionType.WRONG_TYPE
+                );
+            }
+            else if (targetTag && type.equals(ConnectionType.TO_ENT)) {
+                throw new RelationalTagException(
+                    "cannot create " + type + " from entity " + source + " to tag " + target, 
+                    ExceptionType.WRONG_TYPE
+                );
+            }
         }
     }
 
