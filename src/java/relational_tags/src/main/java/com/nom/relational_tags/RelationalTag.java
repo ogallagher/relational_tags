@@ -103,6 +103,10 @@ public class RelationalTag {
         return RelationalTag.connect(this, other, connectionType);
     }
 
+    public RelationalTagConnection connectTo(Object other) throws RelationalTagException {
+        return RelationalTag.connect(this, other, null);
+    }
+
     /**
      * Convenience wrapper for {@link #disconnect(RelationalTag, Object)}.
      * 
@@ -270,6 +274,10 @@ public class RelationalTag {
         }
 
         return conn;
+    }
+
+    public static RelationalTagConnection connect(RelationalTag tag, Object target) throws RelationalTagException {
+        return connect(tag, target, null);
     }
 
     /**
@@ -952,7 +960,7 @@ public class RelationalTag {
             // add current node to visits
             visits.add(node);
 
-            // crete results map for paths to each child
+            // create results map for paths to each child
             HashMap<Object, List<Object>> results = new HashMap<>();
 
             if (node instanceof RelationalTag) {

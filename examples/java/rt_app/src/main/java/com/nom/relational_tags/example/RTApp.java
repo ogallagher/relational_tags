@@ -43,8 +43,7 @@ public class RTApp {
 
         // tag them
 
-        // TODO create method signatures without null connection types
-        RelationalTag.connect(RelationalTag.get("red"), glove, null);
+        RelationalTag.connect(RelationalTag.get("red"), glove);
 
         RelationalTag.get("orange").connectTo(ball, null);
 

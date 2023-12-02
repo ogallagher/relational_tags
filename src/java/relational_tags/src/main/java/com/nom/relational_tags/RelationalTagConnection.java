@@ -39,8 +39,6 @@ public class RelationalTagConnection {
 
     /**
      * Connection types between tags.
-     * 
-     * TODO is TO_ENT supposed to be included? What about ENT_TO_TAG?
      */
     private static Set<ConnectionType> TAG_TAG_TYPES = new HashSet<>();
     /**
