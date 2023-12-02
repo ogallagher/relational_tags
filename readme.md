@@ -6,7 +6,7 @@ This repository contains implementations of relational tags organization in vari
 
 # Development
 
-## Python
+## python
 
 Some auxiliary scripts assume that you're using a virtual environment named `env/`. To set this up, run the following.
 
@@ -28,7 +28,7 @@ python -m pip install -r relational_tags/requirements.txt
 python -m pip list
 ```
 
-## Javascript
+## javascript
 
 Start by installing the development dependencies.
 
@@ -41,7 +41,7 @@ npm install
 npm list
 ```
 
-## Java
+## java
 
 Start by installing the dependencies from `pom.xml` using Maven. Most IDEs with Java support will have a quick way to do this.
 
@@ -54,7 +54,7 @@ mvn build
 
 # Installation
 
-## Python
+## python
 
 Available at [test.pypi.org](https://test.pypi.org/project/relational-tags-owengall/) as an installable package.
 
@@ -62,7 +62,7 @@ Available at [test.pypi.org](https://test.pypi.org/project/relational-tags-oweng
 pip install -i https://test.pypi.org/simple relational-tags-owengall
 ```
 
-## Javascript
+## javascript
 
 Available at [npmjs.com](https://www.npmjs.com/package/relational_tags) as an installable package.
 
@@ -70,7 +70,7 @@ Available at [npmjs.com](https://www.npmjs.com/package/relational_tags) as an in
 npm install relational_tags
 ```
 
-## Java
+## java
 
 The java implementation is not yet distributed as a package, but you can build it locally with the maven `package` phase.
 
@@ -91,15 +91,15 @@ The resulting jar will at `src/java/relational_tags/target/relational_tags-<vers
 
 # Generated Documentation
 
-## Python
+## python
 
 Generate docs at `docs/pdocs/` using the `src/python/pdocs.sh` script, or something similar.
 
-## Javascript
+## javascript
 
 Generate docs at `docs/jsdocs/` using the `src/javascript/jsdocs.sh` script, or something similar.
 
-## Java
+## java
 
 Generate docs at `docs/javadocs/` using the `src/java/javadocs.sh` script, or something similar.
 
@@ -241,6 +241,8 @@ rt.load_json(json)
 ```
 
 ## java
+
+See `examples/java/rt_app/readme.md` for instructions to install the `relational_tags` package as a depdendency from the local jar file.
 
 ```java
 // equivalent java example pending

@@ -6,6 +6,7 @@
 
   <groupId>com.nom.relational_tags.example</groupId>
   <artifactId>rt_app</artifactId>
+  <!-- rt_app example version -->
   <version>0.1.0</version>
 
   <name>rt_app</name>
@@ -15,6 +16,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
+    <!-- relational tags library version -->
     <lib.relational_tags.version>0.1.0</lib.relational_tags.version>
   </properties>
 
@@ -40,17 +42,18 @@
           <version>2.5.2</version>
           <executions>
             <execution>
-                <phase>initialize</phase>
-                <goals>
-                    <goal>install-file</goal>
-                </goals>
-                <configuration>
-                    <file>${basedir}/lib/relational_tags-${lib.relational_tags.version}.jar</file>
-                    <groupId>com.nom.relational_tags</groupId>
-                    <artifactId>relational_tags</artifactId>
-                    <version>${lib.relational_tags.version}</version>
-                    <packaging>jar</packaging>
-                </configuration>
+              <?m2e execute onConfiguration?>
+              <phase>initialize</phase>
+              <goals>
+                  <goal>install-file</goal>
+              </goals>
+              <configuration>
+                  <file>${basedir}/lib/relational_tags-${lib.relational_tags.version}.jar</file>
+                  <groupId>com.nom.relational_tags</groupId>
+                  <artifactId>relational_tags</artifactId>
+                  <version>${lib.relational_tags.version}</version>
+                  <packaging>jar</packaging>
+              </configuration>
             </execution>
           </executions>
         </plugin>

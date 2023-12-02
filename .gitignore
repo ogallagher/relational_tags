@@ -18,6 +18,7 @@ examples/python/rt_webapp/**/migrations/
 # java
 src/java/**/target/
 examples/java/**/target/
+examples/java/rt_app/lib/
 
 # videos
 docs/*.mp4
