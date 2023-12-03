@@ -19,6 +19,31 @@ describe('relational_tags', function() {
 	const RelationalTagException = rt.RelationalTagException
 	const RelationalTagConnection = rt.RelationalTagConnection
 	
+	function format_search(search) {
+		function node_string(n) {
+			return n instanceof RelationalTag ? n.name : n.toString()
+		}
+		
+		if (Array.isArray(search)) {
+			// not full search, just scalar array of nodes
+			return '[' + search.map(node_string).join(',') + ']'
+		}
+		else {
+			// true search
+			let paths = []
+	
+			for (let node of search.keys()) {
+				let nodes = search.get(node).map(node_string)
+		
+				paths.push(
+					`${node instanceof RelationalTag ? node.name : node.toString()} => [${nodes.join(',')}]`
+				)
+			}
+	
+			return paths.join('\n')
+		}
+	}
+	
 	before(function(done) {
 		// configure logging
 		temp_logger.config({
@@ -510,24 +535,6 @@ describe('relational_tags', function() {
 		let rock = 'rock'
 		let leaf = 'leaf'
 		
-		function format_search(search) {
-			let paths = []
-			
-			for (let node of search.keys()) {
-				let nodes = search.get(node).map(function(n) {
-					return n instanceof RelationalTag
-						? n.name
-						: n.toString()
-				})
-				
-				paths.push(
-					`${node instanceof RelationalTag ? node.name : node.toString()} => [${nodes.join(',')}]`
-				)
-			}
-			
-			return paths.join('\n')
-		}
-		
 		before(function() {
 			console.log('debug reset tags')
 			rt.clear()
@@ -581,8 +588,7 @@ describe('relational_tags', function() {
 			)
 			
 			// find leaf by fruit
-			// TODO scoped variables?
-			banana_leaf = rt.search_entities_by_tag(
+			const banana_leaf = rt.search_entities_by_tag(
 				'banana', 
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
@@ -594,7 +600,7 @@ describe('relational_tags', function() {
 				new Set(rt.search_entities_by_tag('banana', false))
 			))
 			
-			fruit_leaf = rt.search_entities_by_tag(
+			const fruit_leaf = rt.search_entities_by_tag(
 				rt.get('fruit'), 
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
@@ -606,7 +612,7 @@ describe('relational_tags', function() {
 			assert.equal(fruit_leaf.get(leaf)[2], leaf)
 			
 			// find leaf by color
-			color_leaf = rt.search_entities_by_tag(
+			const color_leaf = rt.search_entities_by_tag(
 				rt.get('color'), 
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
@@ -660,10 +666,10 @@ describe('relational_tags', function() {
 		it('searches tags by tag', function() {
 			// find descendant tags of fruit
 			// TODO use scoped variables?
-			navel = rt.new('navel')
+			const navel = rt.new('navel')
 			rt.connect(navel, rt.get('orange'), RelationalTagConnection.TYPE_TO_TAG_PARENT)
 			
-			fruit_tags = RelationalTag._search_descendants(
+			const fruit_tags = RelationalTag._search_descendants(
 				rt.get('fruit'),
 				RelationalTagConnection.TYPE_TO_TAG_CHILD,
 				false,		// include_entities
@@ -836,21 +842,48 @@ describe('relational_tags', function() {
 			)
 		})
 		
-		describe.skip('graph traversal', function() {
+		describe('graph traversal', function() {
 			before(function() {
-				// tag hierarchy
-				rt.load({
-					'color': 'red',
-					'red': 'tomato'
-				})
+				// initial aliases
+				rt.alias('color', 'colour')
+				rt.alias('red', 'scarlet')
+				
+				// undirected tag graph
+				rt.new('tomato').connect_to(rt.get('red'))
+				rt.get('scarlet').connect_to(rt.get('colour'))
+				rt.get('tomato').connect_to(rt.new('fruit'))
 			})
 			
 			it('considers aliases to be distance zero', function () {
+				let color_color = rt.graph_path(rt.get('color', false))
+				let colour_colour = rt.graph_path(rt.get('colour', false))
 				
+				assert.ok(
+					color_color.array_equals(colour_colour), 
+					`single node paths should be equivalent for `
+					+ `${format_search(color_color)} and ${format_search(colour_colour)}`
+				)
+				
+				let color_colour = rt.graph_path(rt.get('color'), rt.get('colour'))
+				assert.ok(
+					color_colour.array_equals([rt.get('color')]),
+					`path from color to colour ${format_search(color_colour)} should also be single node`
+				)
 			})
 			
 			it('searches correctly with aliases', function() {
+				let tomato_tags = RelationalTag._search_descendants(
+					rt.get('tomato'),
+					RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED,
+					false,		// include_entities
+					true		// include_tags
+				)
+				console.log(`debug tomato tags:\n${format_search(tomato_tags)}`)
 				
+				assert.ok(tomato_tags.has(rt.get('scarlet', false), 'close alias scarlet missing'))
+				assert.ok(tomato_tags.has(rt.get('red', false, 'close name red missing')))
+				assert.ok(tomato_tags.has(rt.get('color', false, 'distant name color missing')))
+				assert.ok(tomato_tags.has(rt.get('colour', false, 'distant alias colour missing')))
 			})
 		})
 	})
