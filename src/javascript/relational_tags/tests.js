@@ -184,7 +184,7 @@ describe('relational_tags', function() {
 		
 		it('allows call to new when tag exists', function() {
 			// is case insensitive
-			assert.equal(rt.is_case_sensitive(), false, 'not in case sensitive mode')
+			assert.equal(rt.is_case_sensitive(), false, 'should not be in case sensitive mode')
 			
 			let bad_names = ['ONE', 'three']
 			
@@ -745,6 +745,113 @@ describe('relational_tags', function() {
 					type: RelationalTagException.TYPE_FORMAT
 				}
 			)
+		})
+	})
+	
+	describe('aliasing', function() {
+		let tags = ['color', 'red']
+		
+		before(function() {
+			// reset tags
+			console.log(`debug reset tags`)
+			rt.clear()
+			
+			for (let name of tags) {
+				rt.new(name)
+			}
+			
+			rt.get('color').connect_to(rt.get('red'))
+		})
+		
+		it('adds and removes tag aliases', function() {
+			assert.ok(rt.get('color').aliases.has('color'), 'the name of a tag is an alias')
+			
+			// add
+			rt.alias('color', 'colour')
+			assert.ok(rt.get('color').aliases.has('colour'), 'colour should be an alias for color')
+			assert.equal(rt.get('color'), rt.get('colour'), 'tags for color and colour should be the same')
+			
+			rt.alias(rt.get('color'), 'colour', 'should not throw error if alias already set')
+			
+			assert.equal(rt.get('colour'), rt.get('color'), 'get(colour) should be same tag as get(color)')
+			assert.throws(
+				function() { rt.new('colour', false) },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_COLLISION
+				},
+				'new(colour, !get_if_exists) should throw error since already an alias for color'
+			)
+			
+			// delete
+			rt.remove_alias('cooler')
+			assert.throws(
+				// skip_if_no_alias = false
+				function() { rt.remove_alias('cooler', true, false) },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_MISSING
+				},
+				'remove_alias(alias, ?, !skip_if_no_alias) should throw error since cooler is not an alias'
+			)
+			
+			rt.remove_alias('colour')
+			assert.throws(
+				function() { rt.get('colour', false) },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_MISSING
+				},
+				'get(colour, !new_if_missing) should throw error because colour alias was removed'
+			)
+			
+			assert.throws(
+				function() { rt.remove_alias('color') },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_DELETE_DANGER
+				},
+				'remove_alias(color) should throw error because color is primary name/alias without new name provided'
+			)
+		})
+		
+		it('can rename a tag', function() {
+			rt.remove_alias('color', undefined, undefined, '색깔')
+			assert.ok(!rt.all_tags.has('color'))
+			console.log(`info color (renamed) = ${rt.get('색깔', false)}`)
+			
+			rt.rename('색깔', 'color')
+			assert.ok(rt.all_tags.has('색깔'), 'rename preserves old aliases')
+			console.log(
+				`info color (restored)=${rt.get('color', false)}. aliases=${[...rt.get('color').aliases]}`
+			)
+			
+			assert.throws(
+				function() { rt.rename('cooler', 'colour') },
+				{
+					name: 'RelationalTagException',
+					type: RelationalTagException.TYPE_MISSING
+				},
+				'cooler is not a tag that can be renamed'
+			)
+		})
+		
+		describe.skip('graph traversal', function() {
+			before(function() {
+				// tag hierarchy
+				rt.load({
+					'color': 'red',
+					'red': 'tomato'
+				})
+			})
+			
+			it('considers aliases to be distance zero', function () {
+				
+			})
+			
+			it('searches correctly with aliases', function() {
+				
+			})
 		})
 	})
 	

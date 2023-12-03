@@ -94,6 +94,15 @@ class RelationalTag {
 				 * @type {Map}
 				 */
 				this.connections = new Map()
+				
+				/**
+				 * Relational tag aliases. 
+				 * This is synchronized with {@link RelationalTag.all_tags}, where multiple keys (names 
+				 * and aliases) reference the same tag.
+				 * 
+				 * @type {Set}
+				 */ 
+				this.aliases = new Set([this.name])
 			
 				console.log(`info created new tag ${this.name}`)
 			}
@@ -197,7 +206,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.1.13'
+RelationalTag.VERSION = '0.2.0'
 
 // RelationalTag static variables
 
@@ -426,7 +435,7 @@ RelationalTag.new = function(name, get_if_exists) {
  * @memberOf RelationalTag
  * 
  * @param {String} name Unique tag name.
- * @param {Boolean} new_if_missing Whether to create a new tag if it doesn't exist yet.
+ * @param {Boolean} new_if_missing Whether to create a new tag if it doesn't exist yet. Default `true`.
  * 
  * @throws {RelationalTagException} The given tag doesn't exist and `new_if_missing == false`.
  */
@@ -449,6 +458,95 @@ RelationalTag.get = function(name, new_if_missing) {
 	}
 	else {
 		return tag
+	}
+}
+
+/**
+ * Add an alias to an existing tag.
+ * @memberOf RelationalTag
+ * 
+ * @param {String|RelationalTag} tag Relational tag or name (or existing alias).
+ * @param {String} alias New alias.
+ */ 
+RelationalTag.alias = function(tag, alias) {
+	if (!RelationalTag._is_case_sensitive) {
+		alias = alias.toLowerCase()
+	}
+	
+	if (!(tag instanceof RelationalTag)) {
+		// convert to tag
+		const name = RelationalTag._is_case_sensitive ? tag : tag.toLowerCase()
+		tag = RelationalTag.all_tags.get(name)
+		
+		if (tag === undefined) {
+			throw new RelationalTagException(
+				`cannot add alias ${alias} to nonexistent tag ${name}`, 
+				RelationalTagException.TYPE_MISSING
+			)
+		}
+	}
+	
+	RelationalTag.all_tags.set(alias, tag)
+	tag.aliases.add(alias)
+}
+
+/**
+ * Remove an alias from an existing tag.
+ * @memberOf RelationalTag
+ * 
+ * @param {String} alias Alias to remove.
+ * @param {Boolean} error_if_last_alias Throw exception if the given alias is the last remaining alias for the tag.
+ * Default `true`. If the last alias for a tag is removed, the tag will be deleted.
+ * @param {Boolean} skip_if_no_alias Do nothing if the tag doesn't have the given alias. Default `true`.
+ * @param {String} rename_if_name If alias to remove is the tag's primary name, rename the tag to this value.
+ * 
+ * @throws {RelationalTagException} Of `TYPE_WRONG_TYPE` if value not defined for `rename_if_name` and the alias to 
+ * delete is the tag's name. Of `TYPE_DELETE_DANGER` if the alias to delete is the last one for the tag and 
+ * `error_if_last_alias` is `true`. Of `TYPE_MISSING` if the alias does not exist and `skip_if_no_alias` is `false`.
+ */ 
+RelationalTag.remove_alias = function(alias, error_if_last_alias, skip_if_no_alias, rename_if_name) {
+	// opt defaults
+	error_if_last_alias = (error_if_last_alias !== undefined) ? error_if_last_alias : true
+	skip_if_no_alias = (skip_if_no_alias !== undefined) ? skip_if_no_alias : true
+	
+	if (!RelationalTag._is_case_sensitive) {
+		alias = alias.toLowerCase()
+	}
+	const tag = RelationalTag.all_tags.get(alias)
+	
+	// not aliased
+	if (tag === undefined) {
+		if (!skip_if_no_alias) {
+			throw new RelationalTagException(`alias ${alias} not found`, RelationalTagException.TYPE_MISSING)
+		}
+		else {
+			console.log(`info alias ${alias} not found`)
+		}
+	}
+	else {
+		// deletes tag
+		if (tag.aliases.size === 1 && tag.aliases.has(alias) && error_if_last_alias && rename_if_name === undefined) {
+			throw new RelationalTagException(
+				`${alias} is last alias of tag ${tag}; removal of alias deletes the tag`, 
+				RelationalTagException.TYPE_DELETE_DANGER
+			)
+		}
+		// alias is name
+		if (tag.name == alias) {
+			if (rename_if_name !== undefined) {
+				// rename
+				RelationalTag.rename(tag, rename_if_name)
+			}
+			else {
+				throw new RelationalTagException(
+					`attempting to delete primary name ${alias} of ${tag} without defining a new name`,
+					RelationalTagException.WRONG_TYPE
+				)
+			}
+		}
+	
+		RelationalTag.all_tags.delete(alias)
+		tag.aliases.delete(alias)
 	}
 }
 
@@ -485,6 +583,41 @@ RelationalTag.delete = function(tag) {
 	for (let conn of Object.values(tag.connections)) {
 		RelationalTag.disconnect(conn)
 	}
+}
+
+/**
+ * Change the primary name of a tag.
+ * This will retain the old name as an alias.
+ * 
+ * @memberOf RelationalTag
+ * 
+ * @param {RelationalTag|String} tag Existing tag.
+ * @param {String} name New name.
+ * 
+ * @throws {RelationalTagException} Given tag does not exist.
+ */ 
+RelationalTag.rename = function(tag, name) {
+	let old_name
+	if (!(tag instanceof RelationalTag)) {
+		// convert to tag
+		old_name = RelationalTag._is_case_sensitive ? tag : tag.toLowerCase()
+		tag = RelationalTag.all_tags.get(old_name)
+		
+		if (tag === undefined) {
+			throw new RelationalTagException(
+				`cannot rename nonexistent tag ${old_name} to ${name}`, 
+				RelationalTagException.TYPE_MISSING
+			)
+		}
+	}
+	else {
+		old_name = tag.name
+	}
+	
+	tag.aliases.add(name)
+	RelationalTag.all_tags.set(name, tag)
+	tag.name = name
+	console.log(`info renamed tag ${old_name} to ${name}`)
 }
 
 /**
@@ -1150,7 +1283,8 @@ RelationalTagException.TYPES = [
 	'MISSING',
 	'WRONG_TYPE',
 	'COLLISION',
-	'FORMAT'
+	'FORMAT',
+	'DELETE_DANGER'
 ]
 for (let type of RelationalTagException.TYPES) {
 	RelationalTagException[`TYPE_${type.toUpperCase()}`] = type.toUpperCase()
