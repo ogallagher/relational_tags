@@ -840,6 +840,8 @@ describe('relational_tags', function() {
 				},
 				'cooler is not a tag that can be renamed'
 			)
+			
+			rt.rename('색깔', 'hue', 'can rename color/색깔 by alias')
 		})
 		
 		describe('graph traversal', function() {
