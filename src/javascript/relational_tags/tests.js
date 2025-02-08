@@ -1,9 +1,12 @@
 /**
+ * @module tests
  * @fileOverview Relational tags javascript implementation tests.
  * 
- * TODO temp_js_logger should be optional
+ * // TODO temp_js_logger should be optional
  * 
- * @author Owen Gallagher (https://github.com/ogallagher)
+ * // TODO test with and without connection weights
+ * 
+ * @author Owen Gallagher <https://github.com/ogallagher>
  */
 
 const assert = require('assert')
@@ -327,7 +330,7 @@ describe('relational_tags', function() {
 			let tag_tag_type = RelationalTagConnection.TYPE_TO_TAG_CHILD
 			
 			// load tags graph
-			rt.load(tags)
+			rt.load(tags, tag_tag_type)
 			
 			// test graph structure
 			assert.ok(rt.get('color').connections.has(rt.get('red')), 'red is in color connections')
@@ -366,8 +369,17 @@ describe('relational_tags', function() {
 				// reset
 				rt.clear()
 				rt.load(tag_names)
+				/**
+				 * @type {rt.RelationalTag}
+				 */
 				let color = rt.get('color')
+				/**
+				 * @type {rt.RelationalTag}
+				 */
 				let red = rt.get('red')
+				/**
+				 * @type {rt.RelationalTag}
+				 */
 				let yellow = rt.get('yellow')
 				
 				// connect colors w instance methods
@@ -395,15 +407,45 @@ describe('relational_tags', function() {
 				// check connections
 				assert.ok(color.connections.has(red))
 				assert.ok(yellow.connections.has(color))
+
+				// reconnect colors w weights
+				RelationalTag.connect(color, red, RelationalTagConnection.TYPE_TO_TAG_CHILD, 0.1)
+				color.connect_to(yellow, RelationalTagConnection.TYPE_TO_TAG_CHILD, 0.2)
+
+				// check weights
+				assert.notStrictEqual(
+					color.connections.get(red).weight,
+					yellow.connections.get(color).weight
+				)
+				// weight comparison with compareTo
+				assert.ok(color.connections.get(red).compareTo(yellow.connections.get(color)) < 0)
+				// weight is agnostic of direction
+				assert.strictEqual(
+					color.connections.get(red).weight,
+					red.connections.get(color).weight
+				)
 			})
 			
 			it('connects entities', function() {
 				// reset
 				rt.clear()
 				rt.load(tag_names)
+				/**
+				 * @type {rt.RelationalTag}
+				 */
 				let color = rt.get('color')
+				/**
+				 * @type {rt.RelationalTag}
+				 */
 				let red = rt.get('red')
+				/**
+				 * @type {rt.RelationalTag}
+				 */
 				let yellow = rt.get('yellow')
+
+				// connect colors
+				color.connect_to(red)
+				color.connect_to(yellow)
 				
 				// connect colors to entities
 				red.connect_to(apple)
@@ -428,6 +470,17 @@ describe('relational_tags', function() {
 						type: RelationalTagException.TYPE_WRONG_TYPE
 					}
 				)
+
+				// tag-entity weighted connections
+				/**
+				 * @type {rt.RelationalTagConnection}
+				 */
+				let red_apple = rt.connect(red, apple, undefined, 0.25)
+				/**
+				 * @type {rt.RelationalTagConnection}
+				 */
+				let yellow_banana = rt.connect(yellow, banana, undefined, 0.9)
+				assert.ok(red_apple.compareTo(yellow_banana) < 0)
 			})
 		})
 		
