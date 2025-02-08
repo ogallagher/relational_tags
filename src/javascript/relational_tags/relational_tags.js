@@ -968,24 +968,40 @@ RelationalTag.known = function(node) {
  * 
  * @param {(RelationalTag|Object)} a
  * @param {(RelationalTag|Object)} b
+ * @param {boolean} return_connections Whether to return the connection to each node instead of the nodes themselves. Default `false`.
  * 
- * @returns {Array} Array of nodes (tags and entities) along the discovered path, in order from a to b.
+ * @returns {(RelationalTag|Object|RelationalTagConnection)[]} Array of nodes (tags and entities) along the discovered path, in order from a to b.
  */
-RelationalTag.graph_path = function(a, b) {
+RelationalTag.graph_path = function(a, b, return_connections=false) {
+	/**
+	 * @type {RelationalTagConnection[]}
+	 */
+	let conns = []
+
 	if (a == b || b === undefined) {
 		if (RelationalTag.known(a)) {
-			return [a]
-		}
-		else {
-			return []
+			conns = [new RelationalTagConnection(
+				a, a, 
+				(
+					a instanceof RelationalTag 
+					? RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED 
+					: RelationalTagConnection.TYPE_TO_ENT
+				), 
+				undefined, 
+				true
+			)]
 		}
 	}
 	else if (RelationalTag.known(a) && RelationalTag.known(b)) {		
 		let path = RelationalTag._graph_path(a, b, new Set())
-		return path === undefined ? [] : path
+		conns = (path === undefined ? [] : path)
+	}
+	
+	if (return_connections) {
+		return conns
 	}
 	else {
-		return []
+		return conns.map((conn) => conn.target)
 	}
 }
 
@@ -997,15 +1013,23 @@ RelationalTag.graph_path = function(a, b) {
  * 
  * @param {(RelationalTag|Object)} a
  * @param {(RelationalTag|Object)} b
- * @param {Set} visits
+ * @param {Set<RelationalTag|Object>} visits
  * 
- * @returns {Array}
+ * @returns {RelationalTagConnection[]}
  */
 RelationalTag._graph_path = function(a, b, visits) {
 	// add current node to visits
 	visits.add(a)
+
+	let a_is_tag = a instanceof RelationalTag
+	let a_conn_self = new RelationalTagConnection(
+		a, a, 
+		(a_is_tag ? RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED : RelationalTagConnection.TYPE_TO_ENT), 
+		undefined, 
+		true
+	)
 	
-	let connections = a instanceof RelationalTag
+	let connections = a_is_tag
 		? a.connections.keys()
 		: RelationalTag._tagged_entities.get(a).keys()
 	
@@ -1014,7 +1038,10 @@ RelationalTag._graph_path = function(a, b, visits) {
 	for (let node of connections) {
 		if (node == b) {
 			// return path
-			return [a, node]
+			return [
+				a_conn_self, 
+				(a_is_tag ? a.connections.get(b) : RelationalTag._tagged_entities.get(a).get(b))
+			]
 		}
 		else if (!visits.has(node)) {
 			nexts.push(node)
@@ -1033,7 +1060,7 @@ RelationalTag._graph_path = function(a, b, visits) {
 			
 			if (path !== undefined) {
 				// return path
-				return [a].concat(path)
+				return [a_conn_self].concat(path)
 			}
 		}
 		

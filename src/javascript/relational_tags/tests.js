@@ -623,8 +623,8 @@ describe('relational_tags', function() {
 	        rt.get('banana').connect_to(leaf)
 	        rt.connect(rt.get('orange'), leaf)
 		})
-		
-		it('calculates graph paths and distances', function() {
+
+		it('calculates graph paths and distances', function () {
 			let organic = rt.get('organic')
 			let fruit = rt.get('fruit')
 			
@@ -633,17 +633,34 @@ describe('relational_tags', function() {
 			let organic_fruit = rt.graph_path(organic, fruit)
 			let organic_apple = rt.graph_path(organic, apple)
 			let apple_organic = rt.graph_path(apple, organic)
-			
-			assert.ok(rock_rock.array_equals([]))
-			assert.ok(organic_organic.array_equals([organic]))
-			assert.ok(organic_fruit.array_equals([organic, fruit]))
-			assert.ok(organic_apple.array_equals([organic, fruit, apple]))
-			assert.ok(apple_organic.array_equals(organic_apple.reverse()))
-			
-			assert.equal(rt.graph_distance(rock), -1)
-			assert.equal(rt.graph_distance(organic), 0)
-			assert.equal(rt.graph_distance(apple), 0)
-			assert.equal(rt.graph_distance(organic, fruit), 1)
+
+			it('can return path as nodes', function() {
+				assert.ok(rock_rock.array_equals([]))
+				assert.ok(organic_organic.array_equals([organic]))
+				assert.ok(organic_fruit.array_equals([organic, fruit]))
+				assert.ok(organic_apple.array_equals([organic, fruit, apple]))
+				assert.ok(apple_organic.array_equals(organic_apple.reverse()))
+				
+				assert.strictEqual(rt.graph_distance(rock), -1)
+				assert.strictEqual(rt.graph_distance(organic), 0)
+				assert.strictEqual(rt.graph_distance(apple), 0)
+				assert.strictEqual(rt.graph_distance(organic, fruit), 1)
+			})
+
+			it('can return path as connections', function() {
+				assert.strictEqual(
+					rt.graph_path(rock, undefined, true).length, 
+					rock_rock
+				)
+				assert.strictEqual(
+					rt.graph_path(organic, fruit, true).map((conn) => conn.target), 
+					organic_fruit
+				)
+				assert.strictEqual(
+					rt.graph_path(organic, apple, true).map((conn) => conn.target),
+					organic_apple
+				)
+			})
 		})
 		
 		it('searches entities by tag', function() {
@@ -757,7 +774,7 @@ describe('relational_tags', function() {
 			assert.ok(fruit_tags.has(navel))
 		})
 
-		it('sorts search results by connection weight', function() {
+		it('searches with connection weight', function() {
 			/**
 			 * @type {rt.RelationalTag}
 			 */
