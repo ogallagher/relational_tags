@@ -21,6 +21,23 @@ describe('relational_tags', function() {
 	const RelationalTag = rt.RelationalTag
 	const RelationalTagException = rt.RelationalTagException
 	const RelationalTagConnection = rt.RelationalTagConnection
+
+	/**
+	 * @param {Array|Map<any, rt.RelationalTagConnection[]>} search 
+	 * @returns Provided search with connection paths converted to node paths.
+	 */
+	function search_paths_to_nodes(search) {
+		if (Array.isArray(search)) {
+			return search
+		}
+		else {
+			let out = new Map()
+			search.forEach((path, key) => {
+				out.set(key, path.map((conn) => conn.target))
+			})
+			return out
+		}
+	}
 	
 	function format_search(search) {
 		function node_string(n) {
@@ -641,23 +658,23 @@ describe('relational_tags', function() {
 			)
 			
 			// find leaf by fruit
-			const banana_leaf = rt.search_entities_by_tag(
+			const banana_leaf = search_paths_to_nodes(rt.search_entities_by_tag(
 				'banana', 
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
-			)
+			))
 			console.log(`debug banana entities:\n${format_search(banana_leaf)}`)
 			assert.ok(banana_leaf.has(leaf))
 			assert.ok(banana_leaf.get(leaf).array_equals([rt.get('banana'), leaf]))
 			assert.ok(new Set(banana_leaf.keys()).set_equals(
-				new Set(rt.search_entities_by_tag('banana', false))
+				new Set(search_paths_to_nodes(rt.search_entities_by_tag('banana', false)))
 			))
 			
-			const fruit_leaf = rt.search_entities_by_tag(
+			const fruit_leaf = search_paths_to_nodes(rt.search_entities_by_tag(
 				rt.get('fruit'), 
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
-			)
+			))
 			console.log(`debug fruit entities:\n${format_search(fruit_leaf)}`)
 			assert.ok(fruit_leaf.has(leaf))
 			assert.equal(fruit_leaf.get(leaf).length, 3)
@@ -665,11 +682,11 @@ describe('relational_tags', function() {
 			assert.equal(fruit_leaf.get(leaf)[2], leaf)
 			
 			// find leaf by color
-			const color_leaf = rt.search_entities_by_tag(
+			const color_leaf = search_paths_to_nodes(rt.search_entities_by_tag(
 				rt.get('color'), 
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
-			)
+			))
 			console.log(`debug color entities:\n${format_search(color_leaf)}`)
 			assert.ok(color_leaf.has(leaf))
 			assert.equal(color_leaf.get(leaf).length, 3)
@@ -679,12 +696,12 @@ describe('relational_tags', function() {
 		
 		it('searches tags by entity without query', function() {
 			// find ancestor tags of leaf
-			let leaf_tags = RelationalTag._search_descendants(
+			let leaf_tags = search_paths_to_nodes(RelationalTag._search_descendants(
 				leaf,
 				RelationalTagConnection.TYPE_TO_TAG_PARENT,
 				false,		// include_entities
 				true		// include_tags
-			)
+			))
 			console.log(`debug leaf tags:\n${format_search(leaf_tags)}`)
 			for (let tag of RelationalTag._tagged_entities.get(leaf).keys()) {
 				assert.ok(leaf_tags.has(tag), `${tag.name} not in leaf tags`)
@@ -697,12 +714,12 @@ describe('relational_tags', function() {
 		
 		it('searches tags by entity with query', function() {
 			let query = /.*an.*/
-			let leaf_tags = rt.search_tags_of_entity(
+			let leaf_tags = search_paths_to_nodes(rt.search_tags_of_entity(
 				leaf, 
 				query, 
 				RelationalTagConnection.TYPE_TO_TAG_PARENT, 
 				true
-			)
+			))
 			console.log(`debug leaf tags matching ${query}:\n${format_search(leaf_tags)}`)
 			assert.ok(leaf_tags.has(rt.get('orange')), 'orange not in leaf tags')
 			assert.ok(leaf_tags.has(rt.get('organic')), 'organic not in leaf tags')
@@ -711,23 +728,22 @@ describe('relational_tags', function() {
 			
 			rt.connect(rt.new('bananas'), leaf)
 			query = 'banana'
-			leaf_tags = rt.search_tags_of_entity(leaf, query)
+			leaf_tags = search_paths_to_nodes(rt.search_tags_of_entity(leaf, query))
 			assert.equal(leaf_tags.indexOf(rt.get('banana')), 0, 'banana not in leaf tags')
 			assert.equal(leaf_tags.indexOf(rt.get('bananas')), -1, `bananas leaf tag matched query ${query}`)
 		})
 		
 		it('searches tags by tag', function() {
 			// find descendant tags of fruit
-			// TODO use scoped variables?
 			const navel = rt.new('navel')
 			rt.connect(navel, rt.get('orange'), RelationalTagConnection.TYPE_TO_TAG_PARENT)
 			
-			const fruit_tags = RelationalTag._search_descendants(
+			const fruit_tags = search_paths_to_nodes(RelationalTag._search_descendants(
 				rt.get('fruit'),
 				RelationalTagConnection.TYPE_TO_TAG_CHILD,
 				false,		// include_entities
 				true		// include_tags
-			)
+			))
 			console.log(`debug fruit tags:\n${format_search(fruit_tags)}`)
 			for (let tag of rt.get('fruit').connections.keys()) {
 				if (rt.get('fruit').connections.get(tag).type == RelationalTagConnection.TYPE_TO_TAG_CHILD) {
@@ -739,6 +755,68 @@ describe('relational_tags', function() {
 			}
 			
 			assert.ok(fruit_tags.has(navel))
+		})
+
+		it('sorts search results by connection weight', function() {
+			/**
+			 * @type {rt.RelationalTag}
+			 */
+			let fruit = rt.get('fruit')
+			/**
+			 * @type {rt.RelationalTag}
+			 */
+			let color = rt.get('color')
+			/**
+			 * @type {rt.RelationalTag}
+			 */
+			let donut = rt.get('donut')
+			/**
+			 * @type {rt.RelationalTag}
+			 */
+			let orange = rt.get('orange')
+
+			// set weights of existing connections
+
+			// donut is not really a fruit
+			fruit.connections.get(donut).weight = 0
+			for (let t of ['banana', 'cinnamon', 'orange']) {
+				fruit.connections.get(rt.get(t)).weight = 1
+			}
+			// all colors equal weight
+			color.connections.forEach((conn) => {
+				conn.weight = 1
+			})
+
+			// connect more entities
+			let munchkin = 'munchkin'
+			donut.connect_to(munchkin, undefined, 1)
+			let navel = 'navel'
+			orange.connect_to(navel, undefined, 1)
+
+			// sort searches by weight
+			/**
+			 * @type {Map<any, rt.RelationalTagConnection[]>}
+			 */
+			let fruit_entities = RelationalTag.search_entities_by_tag(fruit, undefined, true)
+			assert.ok(fruit_entities.has(navel))
+			// munchkin is a fruit because donut is a fruit, but with lower weight than navel
+			assert.ok(fruit_entities.has(munchkin))
+
+			// same graph distance
+			assert.strictEqual(fruit_entities.get(navel).length, fruit_entities.get(munchkin).length)
+			// different weight
+			let fruit_navel_weight = fruit_entities.get(navel).reduce(
+				(sum, conn) => {return sum + conn.weight},
+				0
+			)
+			let fruit_munchkin_weight = fruit_entities.get(munchkin).reduce(
+				(sum, conn) => {return sum + conn.weight},
+				0
+			)
+			assert.ok(
+				fruit_navel_weight > fruit_munchkin_weight, 
+				'weight of fruit-navel path should be greater than fruit-munchkin path'
+			)
 		})
 	})
 	
@@ -927,12 +1005,12 @@ describe('relational_tags', function() {
 			})
 			
 			it('searches correctly with aliases', function() {
-				let tomato_tags = RelationalTag._search_descendants(
+				let tomato_tags = search_paths_to_nodes(RelationalTag._search_descendants(
 					rt.get('tomato'),
 					RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED,
 					false,		// include_entities
 					true		// include_tags
-				)
+				))
 				console.log(`debug tomato tags:\n${format_search(tomato_tags)}`)
 				
 				assert.ok(tomato_tags.has(rt.get('scarlet', false), 'close alias scarlet missing'))

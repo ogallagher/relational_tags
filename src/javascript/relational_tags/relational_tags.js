@@ -240,6 +240,7 @@ RelationalTag.all_tags = new Map()
  * Structure = `{ entity : { tag : connection } }`.
  * 
  * @memberOf RelationalTag
+ * @type {Map<any, Map<RelationalTag, RelationalTagConnection>>}
  */ 
 RelationalTag._tagged_entities = new Map()
 
@@ -1074,10 +1075,10 @@ RelationalTag.graph_distance = function(a, b) {
  * @param {String} search_direction Tag-tag connection direction for search. If default of
  * `RelationalTagConnection.TYPE_TO_TAG_CHILD`, for example, then all entities connected to this tag,
  * as well as all entities connected to descendants (instead of ancestors) of this tag, are returned.
- * @param {Boolean} include_paths Whether to return as a dictionary mapping entities to their paths from
+ * @param {Boolean} include_paths Whether to return as a map of entities to their paths from
  * the start tag (`true`) or return as a list of entities (`false`).
  * 
- * @returns {(Array|Map)}
+ * @returns {(Object)[]|Map<Object, RelationalTagConnection[]>}
  */
 RelationalTag.search_entities_by_tag = function(tag, search_direction, include_paths) {
 	// search direction default TYPE_TO_TAG_CHILD
@@ -1115,10 +1116,10 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
  * @param {String} search_direction Tag-tag connection direction for search. If default of
  * `RelationalTagConnection.TYPE_TO_TAG_PARENT`, for example, then all tags connected to this entity,
  * as well as all ancestors of those tags, are returned.
- * @param {Boolean} include_paths Whether to return as a dictionary mapping tags to their paths
+ * @param {Boolean} include_paths Whether to return as a map of tags to their paths
  * from the start entity (`true`) or return as a list of tags (`false`).
  * 
- * @returns {(Array|Map)}
+ * @returns {(RelationalTag)[]|Map<RelationalTag, RelationalTagConnection[]>}
  */
 RelationalTag.search_tags_of_entity = function(entity, query, search_direction, include_paths) {
 	// search direction default to TYPE_TO_TAG_PARENT
@@ -1149,6 +1150,14 @@ RelationalTag.search_tags_of_entity = function(entity, query, search_direction, 
  * an entity, the result is each of its tags, plus searches starting from each tag connected to the
  * entity, using the same tag-tag connection search direction as provided originally.
  * 
+ * If the start node is a tag, the first element of each path is a recursive connection to the 
+ * start node itself. If the start node is an entity, the first element of each path is the first
+ * entity-tag connection.
+ * 
+ * Elements of each path are type {@link RelationalTagConnection}, from the perspective of the start
+ * node, in order to expose connection attributes like {@link RelationalTagConnection.weight weight}. 
+ * Each step in the path is accessible as {@link RelationalTagConnection.target}.
+ * 
  * @memberOf RelationalTag
  * 
  * @param {(RelationalTag|Object)} node Start tag or entity from which to begin searching.
@@ -1158,14 +1167,14 @@ RelationalTag.search_tags_of_entity = function(entity, query, search_direction, 
  * @param {Boolean} include_tags If `true`, each tag found after the start node is its own key in the
  * result map.
  * @param {String|RegExp} tag_query Query string for exact match or regexp for filtering tag names.
- * @param {Set} visits Nodes already visited.
- * @param {Array} path Path from an original start node to the current node.
+ * @param {Set<RelationalTag|Object>} visits Nodes already visited.
+ * @param {RelationalTagConnection[]} path Path from an original start node to the current node.
  * 
- * @returns {Map} Map of search results, each node as the key and the corresponding path as the value.
+ * @returns {Map<RelationalTag|Object, RelationalTagConnection[]>} Map of search results, each node as the key and the corresponding path as the value.
  */
 RelationalTag._search_descendants = function(
 	node, direction, 
-	include_entities, include_tags, 
+	include_entities, include_tags,
 	tag_query,
 	visits, path
 ) {
@@ -1179,26 +1188,28 @@ RelationalTag._search_descendants = function(
 		visits = new Set()
 	}
 	
-	// path default single node
-	if (path === undefined) {
-		path = [node]
-	}
-	
 	if (RelationalTag.known(node)) {
 		// add current node to visits
 		visits.add(node)
 		
 		// create results map for paths to each child
+		/**
+		 * @type {Map<RelationalTag|Object, RelationalTagConnection[]>}
+		 */
 		let results = new Map()
 		
 		if (node instanceof RelationalTag) {
+			// path default single node
+			if (path === undefined) {
+				path = [new RelationalTagConnection(node, node, RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED)]
+			}
 			// is tag
 			for (let child of node.connections.keys()) {
 				let conn = node.connections.get(child)
 				
 				if (!visits.has(child) && (conn.type == direction || conn.type == RelationalTagConnection.TYPE_TO_ENT)) {
 					if (child instanceof RelationalTag) {
-						const child_path = path.concat([child])
+						const child_path = path.concat([conn])
 						if (include_tags && child.matches(tag_query)) {
 							// add tag as key in res
 							results.set(child, child_path)
@@ -1222,7 +1233,7 @@ RelationalTag._search_descendants = function(
 					}
 					else if (include_entities) {
 						// add ent as key in res
-						results.set(child, path.concat([child]))
+						results.set(child, path.concat([conn]))
 						// stop here; don't search tags of an entity
 					}
 				}
@@ -1230,12 +1241,17 @@ RelationalTag._search_descendants = function(
 			}
 		}
 		else {
+			// path default single node
+			if (path === undefined) {
+				path = [new RelationalTagConnection(node, node, RelationalTagConnection.TYPE_TO_ENT, undefined, true)]
+			}
 			// is entity
 			// combine searches of all tags
 			for (let tag of RelationalTag._tagged_entities.get(node).keys()) {
+				const child_path = [new RelationalTagConnection(tag, tag, RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED)]
 				if (tag.matches(tag_query)) {
 					// add tag to results
-					results.set(tag, [tag])
+					results.set(tag, child_path)
 				}
 				
 				let tag_results = RelationalTag._search_descendants(
@@ -1245,7 +1261,7 @@ RelationalTag._search_descendants = function(
 					include_tags,
 					tag_query,
 					visits,
-					[tag]
+					child_path
 				)
 			
 				// add tag results to results
@@ -1328,10 +1344,13 @@ class RelationalTagConnection {
 	 * 
 	 * @param {number?} weight
 	 * 
+	 * @param {boolean} allow_ent_ent Allow `TO_ENT` connection between 2 entities. Should generally
+	 * be left `false` as an invalid connection.
+	 * 
 	 * @throws {RelationalTagException} The connection type is incompatible with the given source
 	 * and target.
 	 */
-	constructor(source, target, type, weight=null) {
+	constructor(source, target, type, weight=null, allow_ent_ent=false) {
 		/**
 		 * Connection source.
 		 * @type {RelationalTag|Object}
@@ -1367,10 +1386,12 @@ class RelationalTagConnection {
 			}
 		}
 		else if (!source_tag && !target_tag) {
-			throw new RelationalTagException(
-				`cannot create ${type} connection between entities ${source} and ${target}`, 
-				RelationalTagException.TYPE_WRONG_TYPE
-			)
+			if (!allow_ent_ent) {
+				throw new RelationalTagException(
+					`cannot create ${type} connection between entities ${source} and ${target}`, 
+					RelationalTagException.TYPE_WRONG_TYPE
+				)
+			}
 		}
 		else {
 			if (!type_ent) {
