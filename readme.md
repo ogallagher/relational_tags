@@ -250,6 +250,16 @@ rt.search_entities_by_tag('colour')
 rt.rename('colour', 'hue')
 rt.search_tags_of_entity(ball)
 // [orange, hue, fruit]
+
+// weighted connections
+rt.new('sweet')
+coffee = new Thing('coffee')
+rt.connect(rt.get('sweet'), rt.get('apple'), undefined, 0.9)
+rt.connect(rt.get('sweet'), coffee, undefined, 0.05)
+rt.connect(rt.get('sweet'), rt.get('orange'), undefined, 0.8)
+// sort sweets by sweetness descending
+[...rt.get('sweet').connections.values()].sort((a,b) => b.weight - a.weight).map((conn) => conn.target)
+// [apple, orange, coffee]
 ```
 
 ## java

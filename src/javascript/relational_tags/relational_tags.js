@@ -1,4 +1,5 @@
 /**
+ * @module relational_tags
  * @fileOverview Relational tagging library.
  * 
  * @author Owen Gallagher
@@ -91,7 +92,7 @@ class RelationalTag {
 				/**
 				 * Relational tag connections. This is how we keep track of tag-[entity,tag] relationships.
 				 * 
-				 * @type {Map}
+				 * @type {Map<RelationalTag|Object, RelationalTagConnection>}
 				 */
 				this.connections = new Map()
 				
@@ -114,11 +115,12 @@ class RelationalTag {
 	 * 
 	 * @param {(RelationalTag|Object)} other
 	 * @param {String} connection_type
+	 * @param {number|undefined} connection_weight
 	 * 
 	 * @returns {RelationalTagConnection}
 	 */ 
-	connect_to(other, connection_type) {
-		return RelationalTag.connect(this, other, connection_type)
+	connect_to(other, connection_type, connection_weight) {
+		return RelationalTag.connect(this, other, connection_type, connection_weight)
 	}
 	
 	/**
@@ -146,6 +148,9 @@ class RelationalTag {
 	 */
 	toString() {
 		let connections = new Array(...this.connections.values())
+		/**
+		 * @type {string[]}
+		 */
 		let connections_str = new Array(connections.length)
 		
 		for (let c=0; c < connections.length; c++) {
@@ -206,7 +211,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.2.1'
+RelationalTag.VERSION = '0.3.1'
 
 // RelationalTag static variables
 
@@ -223,6 +228,7 @@ RelationalTag._is_case_sensitive = false
  * Structure = `{ name : tag }`.
  * 
  * @memberOf RelationalTag
+ * @type {Map<string, RelationalTag>}
  */ 
 RelationalTag.all_tags = new Map()
 
@@ -234,6 +240,7 @@ RelationalTag.all_tags = new Map()
  * Structure = `{ entity : { tag : connection } }`.
  * 
  * @memberOf RelationalTag
+ * @type {Map<any, Map<RelationalTag, RelationalTagConnection>>}
  */ 
 RelationalTag._tagged_entities = new Map()
 
@@ -271,18 +278,24 @@ RelationalTag.is_case_sensitive = function() {
  * @param {(RelationalTag|Object)} target The target tag or entity, or `undefined` if the first
  * arg is a connection.
  * @param {String} connection_type Connection type.
+ * @param {number?} connection_weight Connection weight.
  * 
  * @returns {RelationalTagConnection}
  * 
  * @throws {RelationalTagException} The given source and target don't match the connection type.
  */
-RelationalTag.connect = function(tag_or_connection, target, connection_type) {
+RelationalTag.connect = function(
+	tag_or_connection, 
+	target, 
+	connection_type, 
+	connection_weight=null
+) {
 	const source_is_connection = (tag_or_connection instanceof RelationalTagConnection)
 	
 	if (source_is_connection) {
 		console.log(`debug rtag.connect called w connection; converting to source`)
 		let conn = tag_or_connection
-		return RelationalTag.connect(conn.source, conn.target, conn.type)
+		return RelationalTag.connect(conn.source, conn.target, conn.type, conn.weight)
 	}
 	else {
 		let tag = tag_or_connection
@@ -307,7 +320,7 @@ RelationalTag.connect = function(tag_or_connection, target, connection_type) {
 		}
 		
 		// connection
-		let conn = new RelationalTagConnection(tag, target, connection_type)
+		let conn = new RelationalTagConnection(tag, target, connection_type, connection_weight)
 		tag.connections.set(target, conn)
 		
 		// inverse connection
@@ -644,11 +657,14 @@ RelationalTag.clear = function() {
  * 
  * Tags can be duplicated; they will only be loaded once.
  * 
+ * Does not support definition of connection weights between tags.
+ * 
  * There are multiple ways to define a relational tags system:
  * 
  * ### From save
  * 
  * // TODO does this use case make sense? Is it mislabelled instead of restoring after clear?
+ * 
  * Pass a list of {@link RelationalTag} instances as the `tags` arg.
  * 
  * ### Flat
@@ -680,8 +696,7 @@ RelationalTag.clear = function() {
  * @param {String} tag_tag_type Specify what a key-value relationship in the object/dictionary means. Default
  * of `RelationalTagConnection.TYPE_TO_TAG_CHILD` means the key is the parent of the value.
  * 
- * // TODO return is actually list of all relational tags, including pre existing ones
- * @returns {Array} List of generated relational tags.
+ * @returns {Array} List of all relational tags, including pre existing ones.
  * 
  * @throws {RelationalTagException} `tags` is not a supported type/format.
  */
@@ -789,38 +804,48 @@ RelationalTag.load_tag = function(tag_json, get_if_exists, skip_bad_conns) {
 		}
 	}
 	
+	// first and only key is the name of the tag
 	let tag = RelationalTag.new(Object.keys(tag_json)[0], get_if_exists)
 	
 	for (let conn_arr of tag_json[tag.name]) {
+		// source tag is always first, skip
 		const conn_type = conn_arr[1]
+		// for backwards compatibility, support both with and without weight
+		/**
+		 * @type {number|null}
+		 */
+		const conn_weight = (conn_arr.length === 4 ? conn_arr[2] : null)
+		// target is always last
+		const conn_targ = conn_arr[conn_arr.length-1]
 		
 		if (RelationalTagConnection._TAG_TAG_TYPES.indexOf(conn_type) != -1) {
 			// tag-tag
-			// TODO where is target_tag declared?
-			target_tag = RelationalTag.get(conn_arr[2], true)
+			const target_tag = RelationalTag.get(conn_targ, true)
 			
 			RelationalTag.connect(
 				tag,
 				target_tag,
-				conn_type
+				conn_type,
+				conn_weight
 			)
 		}
 		else {
 			// tag-ent
 			try {
 				// entity parsed as plain js object
-				target_entity_json = conn_arr[2]
+				const target_entity_json = conn_targ
 				
 				RelationalTag.connect(
 					tag,
 					target_entity_json,
-					conn_type
+					conn_type,
+					conn_weight
 				)
 			}
 			catch (err) {
 				if (err instanceof SyntaxError) {
 					let rt_error = new RelationalTagException(
-						`loading a tag-entity connection for ${conn_arr[2]} not supported: ${JSON.stringify(conn_arr)}`,
+						`loading a tag-entity connection for ${conn_targ} not supported: ${JSON.stringify(conn_arr)}`,
 						RelationalTagException.TYPE_FORMAT
 					)
 					
@@ -943,24 +968,40 @@ RelationalTag.known = function(node) {
  * 
  * @param {(RelationalTag|Object)} a
  * @param {(RelationalTag|Object)} b
+ * @param {boolean} return_connections Whether to return the connection to each node instead of the nodes themselves. Default `false`.
  * 
- * @returns {Array} Array of nodes (tags and entities) along the discovered path, in order from a to b.
+ * @returns {(RelationalTag|Object|RelationalTagConnection)[]} Array of nodes (tags and entities) along the discovered path, in order from a to b.
  */
-RelationalTag.graph_path = function(a, b) {
+RelationalTag.graph_path = function(a, b, return_connections=false) {
+	/**
+	 * @type {RelationalTagConnection[]}
+	 */
+	let conns = []
+
 	if (a == b || b === undefined) {
 		if (RelationalTag.known(a)) {
-			return [a]
-		}
-		else {
-			return []
+			conns = [new RelationalTagConnection(
+				a, a, 
+				(
+					a instanceof RelationalTag 
+					? RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED 
+					: RelationalTagConnection.TYPE_TO_ENT
+				), 
+				undefined, 
+				true
+			)]
 		}
 	}
 	else if (RelationalTag.known(a) && RelationalTag.known(b)) {		
 		let path = RelationalTag._graph_path(a, b, new Set())
-		return path === undefined ? [] : path
+		conns = (path === undefined ? [] : path)
+	}
+	
+	if (return_connections) {
+		return conns
 	}
 	else {
-		return []
+		return conns.map((conn) => conn.target)
 	}
 }
 
@@ -972,15 +1013,23 @@ RelationalTag.graph_path = function(a, b) {
  * 
  * @param {(RelationalTag|Object)} a
  * @param {(RelationalTag|Object)} b
- * @param {Set} visits
+ * @param {Set<RelationalTag|Object>} visits
  * 
- * @returns {Array}
+ * @returns {RelationalTagConnection[]}
  */
 RelationalTag._graph_path = function(a, b, visits) {
 	// add current node to visits
 	visits.add(a)
+
+	let a_is_tag = a instanceof RelationalTag
+	let a_conn_self = new RelationalTagConnection(
+		a, a, 
+		(a_is_tag ? RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED : RelationalTagConnection.TYPE_TO_ENT), 
+		undefined, 
+		true
+	)
 	
-	let connections = a instanceof RelationalTag
+	let connections = a_is_tag
 		? a.connections.keys()
 		: RelationalTag._tagged_entities.get(a).keys()
 	
@@ -989,7 +1038,10 @@ RelationalTag._graph_path = function(a, b, visits) {
 	for (let node of connections) {
 		if (node == b) {
 			// return path
-			return [a, node]
+			return [
+				a_conn_self, 
+				(a_is_tag ? a.connections.get(b) : RelationalTag._tagged_entities.get(a).get(b))
+			]
 		}
 		else if (!visits.has(node)) {
 			nexts.push(node)
@@ -1008,7 +1060,7 @@ RelationalTag._graph_path = function(a, b, visits) {
 			
 			if (path !== undefined) {
 				// return path
-				return [a].concat(path)
+				return [a_conn_self].concat(path)
 			}
 		}
 		
@@ -1050,10 +1102,10 @@ RelationalTag.graph_distance = function(a, b) {
  * @param {String} search_direction Tag-tag connection direction for search. If default of
  * `RelationalTagConnection.TYPE_TO_TAG_CHILD`, for example, then all entities connected to this tag,
  * as well as all entities connected to descendants (instead of ancestors) of this tag, are returned.
- * @param {Boolean} include_paths Whether to return as a dictionary mapping entities to their paths from
+ * @param {Boolean} include_paths Whether to return as a map of entities to their paths from
  * the start tag (`true`) or return as a list of entities (`false`).
  * 
- * @returns {(Array|Map)}
+ * @returns {(Object)[]|Map<Object, RelationalTagConnection[]>}
  */
 RelationalTag.search_entities_by_tag = function(tag, search_direction, include_paths) {
 	// search direction default TYPE_TO_TAG_CHILD
@@ -1065,8 +1117,7 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
 		tag = RelationalTag.get(tag, false)
 	}
 	
-	// TODO paths is scoped variable?
-	paths = RelationalTag._search_descendants(
+	const paths = RelationalTag._search_descendants(
 		tag,
 		search_direction,
 		true,				// include_entities
@@ -1092,10 +1143,10 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
  * @param {String} search_direction Tag-tag connection direction for search. If default of
  * `RelationalTagConnection.TYPE_TO_TAG_PARENT`, for example, then all tags connected to this entity,
  * as well as all ancestors of those tags, are returned.
- * @param {Boolean} include_paths Whether to return as a dictionary mapping tags to their paths
+ * @param {Boolean} include_paths Whether to return as a map of tags to their paths
  * from the start entity (`true`) or return as a list of tags (`false`).
  * 
- * @returns {(Array|Map)}
+ * @returns {(RelationalTag)[]|Map<RelationalTag, RelationalTagConnection[]>}
  */
 RelationalTag.search_tags_of_entity = function(entity, query, search_direction, include_paths) {
 	// search direction default to TYPE_TO_TAG_PARENT
@@ -1103,8 +1154,7 @@ RelationalTag.search_tags_of_entity = function(entity, query, search_direction, 
 		? RelationalTagConnection.TYPE_TO_TAG_PARENT
 		: search_direction
 	
-	// TODO paths is scoped variable?
-	paths = RelationalTag._search_descendants(
+	const paths = RelationalTag._search_descendants(
 		entity,
 		search_direction,
 		false,				// include_entities
@@ -1127,6 +1177,14 @@ RelationalTag.search_tags_of_entity = function(entity, query, search_direction, 
  * an entity, the result is each of its tags, plus searches starting from each tag connected to the
  * entity, using the same tag-tag connection search direction as provided originally.
  * 
+ * If the start node is a tag, the first element of each path is a recursive connection to the 
+ * start node itself. If the start node is an entity, the first element of each path is the first
+ * entity-tag connection.
+ * 
+ * Elements of each path are type {@link RelationalTagConnection}, from the perspective of the start
+ * node, in order to expose connection attributes like {@link RelationalTagConnection.weight weight}. 
+ * Each step in the path is accessible as {@link RelationalTagConnection.target}.
+ * 
  * @memberOf RelationalTag
  * 
  * @param {(RelationalTag|Object)} node Start tag or entity from which to begin searching.
@@ -1136,14 +1194,14 @@ RelationalTag.search_tags_of_entity = function(entity, query, search_direction, 
  * @param {Boolean} include_tags If `true`, each tag found after the start node is its own key in the
  * result map.
  * @param {String|RegExp} tag_query Query string for exact match or regexp for filtering tag names.
- * @param {Set} visits Nodes already visited.
- * @param {Array} path Path from an original start node to the current node.
+ * @param {Set<RelationalTag|Object>} visits Nodes already visited.
+ * @param {RelationalTagConnection[]} path Path from an original start node to the current node.
  * 
- * @returns {Map} Map of search results, each node as the key and the corresponding path as the value.
+ * @returns {Map<RelationalTag|Object, RelationalTagConnection[]>} Map of search results, each node as the key and the corresponding path as the value.
  */
 RelationalTag._search_descendants = function(
 	node, direction, 
-	include_entities, include_tags, 
+	include_entities, include_tags,
 	tag_query,
 	visits, path
 ) {
@@ -1157,27 +1215,28 @@ RelationalTag._search_descendants = function(
 		visits = new Set()
 	}
 	
-	// path default single node
-	if (path === undefined) {
-		path = [node]
-	}
-	
 	if (RelationalTag.known(node)) {
 		// add current node to visits
 		visits.add(node)
 		
 		// create results map for paths to each child
+		/**
+		 * @type {Map<RelationalTag|Object, RelationalTagConnection[]>}
+		 */
 		let results = new Map()
 		
 		if (node instanceof RelationalTag) {
+			// path default single node
+			if (path === undefined) {
+				path = [new RelationalTagConnection(node, node, RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED)]
+			}
 			// is tag
 			for (let child of node.connections.keys()) {
 				let conn = node.connections.get(child)
 				
 				if (!visits.has(child) && (conn.type == direction || conn.type == RelationalTagConnection.TYPE_TO_ENT)) {
 					if (child instanceof RelationalTag) {
-						// TODO child_path is scoped variable?
-						child_path = path.concat([child])
+						const child_path = path.concat([conn])
 						if (include_tags && child.matches(tag_query)) {
 							// add tag as key in res
 							results.set(child, child_path)
@@ -1201,7 +1260,7 @@ RelationalTag._search_descendants = function(
 					}
 					else if (include_entities) {
 						// add ent as key in res
-						results.set(child, path.concat([child]))
+						results.set(child, path.concat([conn]))
 						// stop here; don't search tags of an entity
 					}
 				}
@@ -1209,12 +1268,17 @@ RelationalTag._search_descendants = function(
 			}
 		}
 		else {
+			// path default single node
+			if (path === undefined) {
+				path = [new RelationalTagConnection(node, node, RelationalTagConnection.TYPE_TO_ENT, undefined, true)]
+			}
 			// is entity
 			// combine searches of all tags
 			for (let tag of RelationalTag._tagged_entities.get(node).keys()) {
+				const child_path = [new RelationalTagConnection(tag, tag, RelationalTagConnection.TYPE_TO_TAG_UNDIRECTED)]
 				if (tag.matches(tag_query)) {
 					// add tag to results
-					results.set(tag, [tag])
+					results.set(tag, child_path)
 				}
 				
 				let tag_results = RelationalTag._search_descendants(
@@ -1224,7 +1288,7 @@ RelationalTag._search_descendants = function(
 					include_tags,
 					tag_query,
 					visits,
-					[tag]
+					child_path
 				)
 			
 				// add tag results to results
@@ -1297,7 +1361,7 @@ console.log(`debug RelationalTagException.TYPES = ${JSON.stringify(RelationalTag
 class RelationalTagConnection {
 	/**
 	 * Create a new connection instance. This should not be called directly, as it doesn't register
-	 * itself with the source or target. Use {@link RelationalTag#connect} instead.
+	 * itself with the source or target. Use {@link RelationalTag.connect} instead.
 	 * 
 	 * @param {RelationalTag|Object} source
 	 * 
@@ -1305,13 +1369,35 @@ class RelationalTagConnection {
 	 * 
 	 * @param {String} type
 	 * 
+	 * @param {number?} weight
+	 * 
+	 * @param {boolean} allow_ent_ent Allow `TO_ENT` connection between 2 entities. Should generally
+	 * be left `false` as an invalid connection.
+	 * 
 	 * @throws {RelationalTagException} The connection type is incompatible with the given source
 	 * and target.
 	 */
-	constructor(source, target, type) {
+	constructor(source, target, type, weight=null, allow_ent_ent=false) {
+		/**
+		 * Connection source.
+		 * @type {RelationalTag|Object}
+		 */
 		this.source = source
+		/**
+		 * Connection target.
+		 * @type {RelationalTag|Object}
+		 */
 		this.target = target
+		/**
+		 * Connection type. See {@link RelationalTagConnection.TYPES} for expected types.
+		 * @type {string}
+		 */
 		this.type = type
+		/**
+		 * 
+		 * @type {number|null}
+		 */
+		this.weight = weight
 
 		// validate type
 		let source_tag = source instanceof RelationalTag
@@ -1327,10 +1413,12 @@ class RelationalTagConnection {
 			}
 		}
 		else if (!source_tag && !target_tag) {
-			throw new RelationalTagException(
-				`cannot create ${type} connection between entities ${source} and ${target}`, 
-				RelationalTagException.TYPE_WRONG_TYPE
-			)
+			if (!allow_ent_ent) {
+				throw new RelationalTagException(
+					`cannot create ${type} connection between entities ${source} and ${target}`, 
+					RelationalTagException.TYPE_WRONG_TYPE
+				)
+			}
 		}
 		else {
 			if (!type_ent) {
@@ -1364,7 +1452,8 @@ class RelationalTagConnection {
 		return new RelationalTagConnection(
 			this.target,
 			this.source,
-			RelationalTagConnection.inverse_type(this.type)
+			RelationalTagConnection.inverse_type(this.type),
+			this.weight
 		)
 	}
 	
@@ -1378,11 +1467,11 @@ class RelationalTagConnection {
 	/**
 	 * Format properties of the connection into a json compatible array.
 	 * 
-	 * Structure = `[ source , type , target ]`. Tags are stored as their name strings, while entities
+	 * Structure = `[ source , type, weight , target ]`. Tags are stored as their name strings, while entities
 	 * are kept unchanged. The resulting array is then passed as an argument to `JSON.stringify`. Therefore,
 	 * all properties that can be stored in a json representation of the entity will be preserved.
 	 * 
-	 * {@link RelationalTag#toString} is not used for serializing tags because it would cause recursion when
+	 * {@link RelationalTag.toString} is not subsequently used for serializing tags because it would cause recursion when
 	 * serializing their connections.
 	 * 
 	 * @returns {String}
@@ -1396,21 +1485,47 @@ class RelationalTagConnection {
 			? this.target.name
 			: this.target
 		
-		return JSON.stringify([source, this.type, target])
+		return JSON.stringify([source, this.type, this.weight, target])
 	}
 	
 	/**
-	 * Whether the given argument is an equivalent connection (same source, target, and type).
+	 * Whether the given argument is an equivalent connection (same source, target, type, and weight).
 	 * 
 	 * @returns {Boolean}
+	 * @override
 	 */
 	equals(other) {
 		return (
 			other instanceof RelationalTagConnection &&
 			other.source == this.source &&
 			other.target == this.target &&
-			other.type == this.type
+			other.type == this.type &&
+			other.weight === this.weight
 		)
+	}
+
+	/**
+	 * Compare to another connection.
+	 * 
+	 * @param {RelationalTagConnection} other 
+	 * @returns {number} The weight difference between this and the other connection. Positive if
+	 * this weight is greater.
+	 */
+	compareTo(other) {
+		if (other instanceof RelationalTagConnection) {
+			if (this.equals(other)) {
+				return 0
+			}
+			else {
+				return this.weight - other.weight
+			}
+		}
+		else {
+			throw new RelationalTagException(
+				`cannot compare connection to ${other}`, 
+				RelationalTagException.TYPE_WRONG_TYPE
+			)
+		}
 	}
 }
 

@@ -167,6 +167,8 @@ rt.search_entities_by_tag('fruit')
 # TODO use search to find tags of entity
 
 # TODO save and load via json
+
+# TODO python aliasing implementation
 ```
 
 ## javascript
@@ -230,7 +232,7 @@ rt.search_entities_by_tag('fruit')
 rt.search_tags_of_entity(ball)              // all transitively connected tags to ball
 // [orange, color, fruit]
 rt.search_tags_of_entity(glove, 'color', 'TO_TAG_PARENT', true)    // what color is glove?
-// {color => [orange, color]}
+// {color => [red, color]}
 rt.search_tags_of_entity(ball, /.*or.*/)    // ball tags containing or
 // [orange, color]
 
@@ -238,6 +240,26 @@ rt.search_tags_of_entity(ball, /.*or.*/)    // ball tags containing or
 let json = rt.save_json()
 rt.clear()
 rt.load_json(json)
+
+// support for things like translations, synonyms, alternative spellings with tag aliasing
+rt.alias(rt.get('color'), 'colour')
+rt.alias('color', 'hue')
+
+rt.search_entities_by_tag('colour')
+// [glove, ball]
+rt.rename('colour', 'hue')
+rt.search_tags_of_entity(ball)
+// [orange, hue, fruit]
+
+// weighted connections
+rt.new('sweet')
+coffee = new Thing('coffee')
+rt.connect(rt.get('sweet'), rt.get('apple'), undefined, 0.9)
+rt.connect(rt.get('sweet'), coffee, undefined, 0.05)
+rt.connect(rt.get('sweet'), rt.get('orange'), undefined, 0.8)
+// sort sweets by sweetness descending
+[...rt.get('sweet').connections.values()].sort((a,b) => b.weight - a.weight).map((conn) => conn.target)
+// [apple, orange, coffee]
 ```
 
 ## java
@@ -328,7 +350,7 @@ public class RTApp {
             "color", 
             ConnectionType.TO_TAG_PARENT
         );
-        // {color => [orange, red]}
+        // {color => [orange, color]}
 
         // ball tags containing or
         resultTags = RelationalTag.searchTagsOfEntity(ball, Pattern.compile(".*or.*"), null);
@@ -338,6 +360,8 @@ public class RTApp {
         String json = RelationalTag.saveJSON();
         RelationalTag.clear();
         RelationalTag.loadJSON(json, null, null);
+				
+				// TODO java aliasing implementation
     }
 }
 ```
