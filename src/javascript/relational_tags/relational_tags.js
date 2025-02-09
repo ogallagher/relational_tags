@@ -5,7 +5,7 @@
  * @author Owen Gallagher
  */
 
-const { NotImplementedError } = require('standard-errors')
+const NotImplementedError = require('standard-errors/errors/not-implemented-error')
 
 /**
  * Handle optional imports.
@@ -1309,17 +1309,21 @@ RelationalTag._search_descendants = function(
 /**
  * Class for all exceptions/errors specific to relational tags.
  */ 
-class RelationalTagException {
+class RelationalTagException extends Error {
 	/**
 	 * Create a relational tag exception instance.
 	 * 
 	 * @param {String} message Error message.
 	 * 
 	 * @param {String} type Error type.
+	 * 
+	 * @param {any|undefined} cause Cause of error.
 	 */
-	constructor(message, type) {
+	constructor(message, type, cause) {
+		super(message, {
+			cause: cause
+		})
 		this.name = 'RelationalTagException'
-		this.message = message
 		this.type = type === undefined ? RelationalTagException.TYPE_GENERIC : type
 	}
 	
@@ -1485,6 +1489,21 @@ class RelationalTagConnection {
 			? this.target.name
 			: this.target
 		
+		return (
+			'['
+			+ JSON.stringify(
+				source,
+				source instanceof SerializableEntity ? source.getSerializable : undefined
+			)
+			+ ',' + JSON.stringify(this.type) 
+			+ ',' + JSON.stringify(this.weight)
+			+ ',' + JSON.stringify(
+				target,
+				target instanceof SerializableEntity ? target.getSerializable : undefined
+			)
+			+ ']'
+		)
+		
 		return JSON.stringify([source, this.type, this.weight, target])
 	}
 	
@@ -1604,11 +1623,34 @@ RelationalTagConnection.inverse_type = function(type) {
 	}
 }
 
+/**
+ * Abstract superclass for tagged entities that are not natively serializable by [`JSON.stringify`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify).
+ */
+class SerializableEntity {
+	/**
+	 * Used as [`JSON.stringify(replacer)`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#the_replacer_parameter)
+	 * to filter attributes that are not natively serializable.
+	 * 
+	 * @param {string} key 
+	 * @param {any} val
+	 * 
+	 * @throws {RelationalTagException} Subclass did not implement the abstract class.
+	 */
+	getSerializable(key, val) {
+		throw new RelationalTagException(
+			'subclass must implement getSerializable',
+			RelationalTagException.TYPE_MISSING,
+			new NotImplementedError()
+		)
+	}
+}
+
 // exports
 
 exports.RelationalTag = RelationalTag
 exports.RelationalTagException = RelationalTagException
 exports.RelationalTagConnection = RelationalTagConnection
+exports.SerializableEntity = SerializableEntity
 
 for (let key of Object.keys(RelationalTag)) {
 	// export all public members of the RelationalTag class to module level

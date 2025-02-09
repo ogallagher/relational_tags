@@ -4,8 +4,6 @@
  * 
  * // TODO temp_js_logger should be optional
  * 
- * // TODO test with and without connection weights
- * 
  * @author Owen Gallagher <https://github.com/ogallagher>
  */
 
@@ -1184,6 +1182,87 @@ describe('relational_tags', function() {
 				assert.equal(color_green.type, green_color.type, 'tag-tag undirected inverse type')
 				assert.ok(color_green.inverse().equals(green_color), 'tag-tag undirected inverse connection')
 			})
+		})
+	})
+
+	describe('SerializableEntity', function() {
+		let ent_parent = {
+			name: 'parent',
+			children: [],
+			toString: () => 'parent'
+		}
+		let ent_raw = {
+			name: 'raw',
+			serializable: false,
+			parent: ent_parent,
+			toString: () => 'raw'
+		}
+		ent_parent.children.push(ent_raw)
+		class AlmostSerializable extends rt.SerializableEntity {
+			constructor(name, parent) {
+				super()
+				this.name = name
+				this.serializable = false
+				parent.children.push(this)
+				this.parent = parent
+			}
+
+			toString() {
+				return this.name
+			}
+		}
+		class Serializable extends AlmostSerializable {
+			constructor(name, parent) {
+				super(name, parent)
+				this.serializable = true
+			}
+
+			getSerializable(key, val) {
+				if (key === 'parent') {
+					assert.strictEqual(val.name, this.parent.name)
+					return val.name
+				}
+				else {
+					return val
+				}
+			}
+		}
+		let ent_almost = new AlmostSerializable('almost', ent_parent)
+		let ent_serializable = new Serializable('serializable', ent_parent)
+
+		it('is used when serializing', function() {
+			// tag entities
+			let tagged = RelationalTag.new('tagged')
+			for (let ent of [
+				ent_raw, ent_almost, ent_serializable
+			]) {
+				tagged.connect_to(ent)
+
+				assert.ok(tagged.connections.has(ent))
+			}
+
+			// serialize entities
+			assert.throws(
+				() => {
+					console.log(`debug with ent_raw=${tagged.toString()}`)
+				},
+				{
+					name: TypeError.name
+				}
+			)
+			tagged.disconnect_to(ent_raw)
+
+			assert.throws(
+				() => {
+					console.log(`debug with ent_almost=${tagged.toString()}`)
+				},
+				{
+					name: RelationalTagException.name
+				}
+			)
+			tagged.disconnect_to(ent_almost)
+			
+			assert.ok(`with ent_serializable=${tagged.toString()}`)
 		})
 	})
 })
