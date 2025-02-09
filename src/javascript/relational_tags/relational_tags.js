@@ -211,7 +211,7 @@ class RelationalTag {
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.3.1'
+RelationalTag.VERSION = '0.3.2'
 
 // RelationalTag static variables
 
@@ -377,7 +377,7 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 				RelationalTag._tagged_entities.get(target).delete(tag)
 			}
 			else {
-				log.warning(`entity ${target} already untagged`)
+				console.log(`warning entity ${target} already untagged`)
 			}
 		}
 	}
@@ -579,7 +579,7 @@ RelationalTag.delete = function(tag) {
 		tag = RelationalTag.all_tags.get(name)
 		
 		if (tag === undefined) {
-			log.warning(`skip delete of nonexistent tag ${name}`)
+			log(`warning skip delete of nonexistent tag ${name}`)
 			return
 		}
 		else {
