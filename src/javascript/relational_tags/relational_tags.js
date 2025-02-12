@@ -183,7 +183,7 @@ RelationalTag.logger = logger
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.3.3'
+RelationalTag.VERSION = '0.3.4'
 
 // RelationalTag static variables
 
@@ -942,7 +942,7 @@ RelationalTag.known = function(node) {
  * @param {(RelationalTag|Object)} b
  * @param {boolean} return_connections Whether to return the connection to each node instead of the nodes themselves. Default `false`.
  * 
- * @returns {(RelationalTag|Object|RelationalTagConnection)[]} Array of nodes (tags and entities) along the discovered path, in order from a to b.
+ * @returns {Array<(RelationalTag|Object|RelationalTagConnection)>} Array of nodes (tags and entities) along the discovered path, in order from a to b.
  */
 RelationalTag.graph_path = function(a, b, return_connections=false) {
 	/**
@@ -1070,14 +1070,14 @@ RelationalTag.graph_distance = function(a, b) {
  * 
  * @memberOf RelationalTag
  * 
- * @param {(RelationalTag|String)} tag The tag or tag name.
+ * @param {RelationalTag|String} tag The tag or tag name.
  * @param {String} search_direction Tag-tag connection direction for search. If default of
  * `RelationalTagConnection.TYPE_TO_TAG_CHILD`, for example, then all entities connected to this tag,
  * as well as all entities connected to descendants (instead of ancestors) of this tag, are returned.
  * @param {Boolean} include_paths Whether to return as a map of entities to their paths from
  * the start tag (`true`) or return as a list of entities (`false`).
  * 
- * @returns {(Object)[]|Map<Object, RelationalTagConnection[]>}
+ * @returns {Object[]|Map<Object, RelationalTagConnection[]>}
  */
 RelationalTag.search_entities_by_tag = function(tag, search_direction, include_paths) {
 	// search direction default TYPE_TO_TAG_CHILD
@@ -1110,7 +1110,7 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
  * @memberOf RelationalTag
  * 
  * @param {Object} entity The entity from which to start the search.
- * @param {(String|RegExp)} query Optional string or regular expression for filtering tag names. 
+ * @param {String|RegExp} query Optional string or regular expression for filtering tag names. 
  * If the query is a string, only one tag will be returned, as it must be an exact match.
  * @param {String} search_direction Tag-tag connection direction for search. If default of
  * `RelationalTagConnection.TYPE_TO_TAG_PARENT`, for example, then all tags connected to this entity,
@@ -1118,7 +1118,7 @@ RelationalTag.search_entities_by_tag = function(tag, search_direction, include_p
  * @param {Boolean} include_paths Whether to return as a map of tags to their paths
  * from the start entity (`true`) or return as a list of tags (`false`).
  * 
- * @returns {(RelationalTag)[]|Map<RelationalTag, RelationalTagConnection[]>}
+ * @returns {RelationalTag[]|Map<RelationalTag, RelationalTagConnection[]>}
  */
 RelationalTag.search_tags_of_entity = function(entity, query, search_direction, include_paths) {
 	// search direction default to TYPE_TO_TAG_PARENT
