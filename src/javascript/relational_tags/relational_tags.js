@@ -5,47 +5,12 @@
  * @author Owen Gallagher
  */
 
+const pino = require('pino').default
 const NotImplementedError = require('standard-errors/errors/not-implemented-error')
 
-/**
- * Handle optional imports.
- * 
- * @private
- * 
- * @param {Array} opt_libs The resolved optional libraries in the following order: 
- * temp_js_logger
- */ 
-function on_opt_libs(opt_libs) {
-	return new Promise(function(resolve) {
-		const logging = opt_libs[0]
-		
-		logging.config({
-			level: 'debug',
-			with_timestamp: false, 
-			caller_name: 'relational_tags', 
-			with_lineno: false, 
-			parse_level_prefix: true, 
-			with_level: true,
-			with_always_level_name: true, 
-			with_cli_colors: true
-		})
-		console.log('debug configured logging')
-		
-		logging.imports_promise.then(resolve)
-	})
-}
-
-// optional dependencies
-Promise.all([
-	import('temp_js_logger')
-]).then(
-	on_opt_libs,
-	function(err) {
-		console.log('warning failed to import optional dependencies')
-	}
-)
-
-console.log('debug begin define relational_tags library')
+const logger = pino({
+	name: 'relational-tags'
+})
 
 /**
  * RelationalTag class.
@@ -105,7 +70,7 @@ class RelationalTag {
 				 */ 
 				this.aliases = new Set([this.name])
 			
-				console.log(`info created new tag ${this.name}`)
+				logger.info(`created new tag ${this.name}`)
 			}
 		}
 	}
@@ -207,6 +172,13 @@ class RelationalTag {
 }
 
 /**
+ * Module logger.
+ * 
+ * @type {pino.Logger}
+ */
+RelationalTag.logger = logger
+
+/**
  * Package version.
  * 
  * @memberOf RelationalTag
@@ -293,7 +265,7 @@ RelationalTag.connect = function(
 	const source_is_connection = (tag_or_connection instanceof RelationalTagConnection)
 	
 	if (source_is_connection) {
-		console.log(`debug rtag.connect called w connection; converting to source`)
+		logger.debug(`rtag.connect called w connection; converting to source`)
 		let conn = tag_or_connection
 		return RelationalTag.connect(conn.source, conn.target, conn.type, conn.weight)
 	}
@@ -329,7 +301,7 @@ RelationalTag.connect = function(
 		}
 		else {
 			if (!RelationalTag._tagged_entities.has(target)) {
-				console.log(`info new tagged entity ${target}`)
+				logger.info(`new tagged entity ${target}`)
 				RelationalTag._tagged_entities.set(target, new Map())
 			}
 			
@@ -354,7 +326,7 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 	const source_is_connection = (tag_or_connection instanceof RelationalTagConnection)
 	
 	if (source_is_connection) {
-		console.log(`debug rtag.disconnect called w connection; converting to source`)
+		logger.debug(`rtag.disconnect called w connection; converting to source`)
 		let conn = tag_or_connection
 		if (conn.source instanceof RelationalTag) {
 			return RelationalTag.disconnect(conn.source, conn.target)
@@ -377,7 +349,7 @@ RelationalTag.disconnect = function(tag_or_connection, target) {
 				RelationalTag._tagged_entities.get(target).delete(tag)
 			}
 			else {
-				console.log(`warning entity ${target} already untagged`)
+				logger.warn(`entity ${target} already untagged`)
 			}
 		}
 	}
@@ -403,7 +375,7 @@ RelationalTag.disconnect_entity = function(entity) {
 		RelationalTag._tagged_entities.delete(entity)
 	}
 	else {
-		console.log(`info ${entity} already not tagged`)
+		logger.info(`${entity} already not tagged`)
 	}
 }
 
@@ -431,7 +403,7 @@ RelationalTag.new = function(name, get_if_exists) {
 		return tag
 	}
 	catch (err) {
-		console.log(`warning ${err}`)
+		logger.warn(err)
 		
 		if (err.type == RelationalTagException.TYPE_COLLISION && get_if_exists) {
 			return RelationalTag.all_tags.get(name)
@@ -533,7 +505,7 @@ RelationalTag.remove_alias = function(alias, error_if_last_alias, skip_if_no_ali
 			throw new RelationalTagException(`alias ${alias} not found`, RelationalTagException.TYPE_MISSING)
 		}
 		else {
-			console.log(`info alias ${alias} not found`)
+			logger.info(`alias ${alias} not found`)
 		}
 	}
 	else {
@@ -630,7 +602,7 @@ RelationalTag.rename = function(tag, name) {
 	tag.aliases.add(name)
 	RelationalTag.all_tags.set(name, tag)
 	tag.name = name
-	console.log(`info renamed tag ${old_name} to ${name}`)
+	logger.info(`renamed tag ${old_name} to ${name}`)
 }
 
 /**
@@ -705,12 +677,12 @@ RelationalTag.load = function(tags, tag_tag_type) {
 	tag_tag_type = tag_tag_type === undefined ? RelationalTagConnection.TYPE_TO_TAG_CHILD : tag_tag_type
 	
 	if (tags instanceof Array) {
-		console.log(`info loading ${tags.length} relational tags from list`)
+		logger.info(`loading ${tags.length} relational tags from list`)
 		
 		for (let tag of tags) {
 			if (tag instanceof RelationalTag) {
 				if (tag.name in RelationalTag.all_names) {
-					console.log(`warning duplicate tag ${tag} on load`)
+					logger.warn(`duplicate tag ${tag} on load`)
 				}
 				
 				RelationalTag.all_tags.set(tag.name, tag)
@@ -728,7 +700,7 @@ RelationalTag.load = function(tags, tag_tag_type) {
 	}
 	else if (typeof tags === 'object') {
 		let tag_names = Object.keys(tags)
-		console.log(`info loading ${tag_names.length} relational tags from object`)
+		logger.info(`loading ${tag_names.length} relational tags from object`)
 		
 		for (let tag_name of tag_names) {
 			// create new key tag
@@ -757,7 +729,7 @@ RelationalTag.load = function(tags, tag_tag_type) {
 		}
 	}
 	else {
-		console.log(`error failed to parse tags from:\n${JSON.stringify(tags, undefined, 2)}`)
+		logger.error(`failed to parse tags from:\n${JSON.stringify(tags, undefined, 2)}`)
 		
 		throw new RelationalTagException(
 			`unsupported tags type/format ${typeof tags}`,
@@ -850,7 +822,7 @@ RelationalTag.load_tag = function(tag_json, get_if_exists, skip_bad_conns) {
 					)
 					
 					if (skip_bad_conns) {
-						console.log(`error ${rt_error}`)
+						logger.error(rt_error)
 					}
 					else {
 						throw rt_error
@@ -1357,7 +1329,7 @@ RelationalTagException.TYPES = [
 for (let type of RelationalTagException.TYPES) {
 	RelationalTagException[`TYPE_${type.toUpperCase()}`] = type.toUpperCase()
 }
-console.log(`debug RelationalTagException.TYPES = ${JSON.stringify(RelationalTagException.TYPES)}`)
+logger.debug(`RelationalTagException.TYPES = ${JSON.stringify(RelationalTagException.TYPES)}`)
 
 /**
  * Connection between a relational tag and another tag or entity.
@@ -1590,7 +1562,7 @@ for (let type of RelationalTagConnection.TYPES) {
 		RelationalTagConnection._TAG_ENT_TYPES.push(T)
 	}
 }
-console.log(`debug RelationalTagConnection.TYPES = ${JSON.stringify(RelationalTagConnection.TYPES)}`)
+logger.debug(`RelationalTagConnection.TYPES = ${JSON.stringify(RelationalTagConnection.TYPES)}`)
 
 // RelationalTagConnection static methods
 
@@ -1658,5 +1630,3 @@ for (let key of Object.keys(RelationalTag)) {
 		exports[key] = RelationalTag[key]
 	}
 }
-
-console.log('debug end define relational_tags library')

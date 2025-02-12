@@ -3,8 +3,9 @@
   "version": "0.3.3",
   "description": "Relational tagging library.",
   "main": "relational_tags.js",
+  "type": "commonjs",
   "scripts": {
-    "test": "mocha tests.js",
+    "test": "mocha tests.js | npx pino-pretty -L error",
     "build": "source ./build.sh",
     "doc": "source ./jsdocs.sh"
   },
@@ -29,9 +30,10 @@
   "devDependencies": {
     "jsdoc": "^3.6.10",
     "mocha": "^9.2.1",
-    "temp_js_logger": "^0.5.2"
+    "pino-pretty": "^13.0.0"
   },
   "dependencies": {
+    "pino": "^9.6.0",
     "standard-errors": "^1.1.2"
   }
 }

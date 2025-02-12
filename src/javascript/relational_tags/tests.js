@@ -2,18 +2,18 @@
  * @module tests
  * @fileOverview Relational tags javascript implementation tests.
  * 
- * // TODO temp_js_logger should be optional
- * 
  * @author Owen Gallagher <https://github.com/ogallagher>
  */
 
+const pino = require('pino')
 const assert = require('assert')
 
+const logger = pino({
+	name: 'tests'
+})
+
 describe('relational_tags', function() {
-	const temp_logger = require('temp_js_logger')
 	const rt = require('./relational_tags.js')
-	
-	const logging_level = 'debug'
 	
 	// import rt classes into namespace
 	const RelationalTag = rt.RelationalTag
@@ -62,26 +62,13 @@ describe('relational_tags', function() {
 		}
 	}
 	
-	before(function(done) {
-		// configure logging
-		temp_logger.config({
-			level: logging_level,
-			with_timestamp: false, 
-			caller_name: 'tests', 
-			with_lineno: false, 
-			parse_level_prefix: true, 
-			with_level: true,
-			with_always_level_name: true, 
-			with_cli_colors: true
-		})
-		console.log('debug configured logging')
-		
+	before(function() {		
 		// define Array equality
 		Array.prototype.array_equals = function(other) {
 			if (other instanceof Array && this.length == other.length) {
 				for (let i=0; i < this.length; i++) {
 					if (this[i] !== other[i]) {
-						console.log(`warning ${this[i]} != ${other[i]}`)
+						logger.warning(`${this[i]} != ${other[i]}`)
 						return false
 					}
 				}
@@ -89,7 +76,7 @@ describe('relational_tags', function() {
 				return true
 			}
 			else {
-				console.log(`warning ${this.length} != ${other instanceof Array ? other.length : typeof other}`)
+				logger.warning(`${this.length} != ${other instanceof Array ? other.length : typeof other}`)
 				return false
 			}
 		}
@@ -99,7 +86,7 @@ describe('relational_tags', function() {
 			if (other instanceof Set && this.size == other.size) {
 				for (let value of this) {
 					if (!other.has(value)) {
-						console.log(`warning ${value} not in ${other}`)
+						logger.warning(`${value} not in ${other}`)
 						return false
 					}
 				}
@@ -107,23 +94,23 @@ describe('relational_tags', function() {
 				return true
 			}
 			else {
-				console.log(`warning ${this.size} != ${other instanceof Set ? other.size : typeof other}`)
+				logger.warning(`${this.size} != ${other instanceof Set ? other.size : typeof other}`)
 				return false
 			}
 		}
-		
-		temp_logger.imports_promise.then(done)
 	})
 	
 	it('imports correctly', function() {
 		assert.equal(require('./package.json').version, rt.VERSION, 'hardcoded version matches package version')
 		
 		assert.ok(rt !== undefined)
-		console.log(`debug rt.VERSION = ${rt.VERSION}`)
+		logger.debug(`rt.VERSION = ${rt.VERSION}`)
 		assert.ok(RelationalTag !== undefined)
-		console.log(`debug RelationalTag.VERSION = ${RelationalTag.VERSION}`)
+		logger.debug(`RelationalTag.VERSION = ${RelationalTag.VERSION}`)
 		assert.ok(RelationalTagException !== undefined)
 		assert.ok(RelationalTagConnection !== undefined)
+		assert.ok(rt.logger !== undefined)
+		logger.debug(`rt.logger = ${rt.logger}`)
 	})
 	
 	describe('RelationalTag', function() {
@@ -183,7 +170,7 @@ describe('relational_tags', function() {
 			assert.throws(
 				function() {
 					let apple = new RelationalTag('Apple')
-					console.log(`warning recreated tag ${apple.name}`)
+					logger.warning(`recreated tag ${apple.name}`)
 				},
 				exists_exception
 			)
@@ -206,7 +193,7 @@ describe('relational_tags', function() {
 		
 		before(function() {
 			// reset tags
-			console.log(`debug reset tags`)
+			logger.debug(`reset tags`)
 			rt.clear()
 			
 			for (let name of tags) {
@@ -282,7 +269,7 @@ describe('relational_tags', function() {
 		let ents = ['apple', 'banana', 'strawberry']
 		
 		before(function() {
-			console.log('debug reset tags')
+			logger.debug('reset tags')
 			rt.clear()
 			
 			for (let tag of tags) {
@@ -319,7 +306,7 @@ describe('relational_tags', function() {
 	
 	describe('load', function() {
 		it('loads tags from flat list', function() {
-			console.log('debug reset tags')
+			logger.debug('reset tags')
 			rt.clear()
 			
 			let tag_names = ['red', 'green', 'blue', 'blue']
@@ -335,7 +322,7 @@ describe('relational_tags', function() {
 		})
 		
 		it('loads connected tags as hierarchical dict', function() {
-			console.log('debug reset tags')
+			logger.debug('reset tags')
 			rt.clear()
 			
 			let tags = {
@@ -604,7 +591,7 @@ describe('relational_tags', function() {
 		let leaf = 'leaf'
 		
 		before(function() {
-			console.log('debug reset tags')
+			logger.debug('reset tags')
 			rt.clear()
 			
 			rt.load({
@@ -678,7 +665,7 @@ describe('relational_tags', function() {
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
 			))
-			console.log(`debug banana entities:\n${format_search(banana_leaf)}`)
+			logger.debug(`banana entities:\n${format_search(banana_leaf)}`)
 			assert.ok(banana_leaf.has(leaf))
 			assert.ok(banana_leaf.get(leaf).array_equals([rt.get('banana'), leaf]))
 			assert.ok(new Set(banana_leaf.keys()).set_equals(
@@ -690,7 +677,7 @@ describe('relational_tags', function() {
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
 			))
-			console.log(`debug fruit entities:\n${format_search(fruit_leaf)}`)
+			logger.debug(`fruit entities:\n${format_search(fruit_leaf)}`)
 			assert.ok(fruit_leaf.has(leaf))
 			assert.equal(fruit_leaf.get(leaf).length, 3)
 			assert.equal(fruit_leaf.get(leaf)[0], rt.get('fruit'))
@@ -702,7 +689,7 @@ describe('relational_tags', function() {
 				RelationalTagConnection.TYPE_TO_TAG_CHILD, 
 				true
 			))
-			console.log(`debug color entities:\n${format_search(color_leaf)}`)
+			logger.debug(`color entities:\n${format_search(color_leaf)}`)
 			assert.ok(color_leaf.has(leaf))
 			assert.equal(color_leaf.get(leaf).length, 3)
 			assert.equal(color_leaf.get(leaf)[0], rt.get('color'), 'color not first in path to leaf')
@@ -717,7 +704,7 @@ describe('relational_tags', function() {
 				false,		// include_entities
 				true		// include_tags
 			))
-			console.log(`debug leaf tags:\n${format_search(leaf_tags)}`)
+			logger.debug(`leaf tags:\n${format_search(leaf_tags)}`)
 			for (let tag of RelationalTag._tagged_entities.get(leaf).keys()) {
 				assert.ok(leaf_tags.has(tag), `${tag.name} not in leaf tags`)
 			}
@@ -735,7 +722,7 @@ describe('relational_tags', function() {
 				RelationalTagConnection.TYPE_TO_TAG_PARENT, 
 				true
 			))
-			console.log(`debug leaf tags matching ${query}:\n${format_search(leaf_tags)}`)
+			logger.debug(`leaf tags matching ${query}:\n${format_search(leaf_tags)}`)
 			assert.ok(leaf_tags.has(rt.get('orange')), 'orange not in leaf tags')
 			assert.ok(leaf_tags.has(rt.get('organic')), 'organic not in leaf tags')
 			assert.ok(leaf_tags.has(rt.get('banana')), 'banana not in leaf tags')
@@ -759,7 +746,7 @@ describe('relational_tags', function() {
 				false,		// include_entities
 				true		// include_tags
 			))
-			console.log(`debug fruit tags:\n${format_search(fruit_tags)}`)
+			logger.debug(`fruit tags:\n${format_search(fruit_tags)}`)
 			for (let tag of rt.get('fruit').connections.keys()) {
 				if (rt.get('fruit').connections.get(tag).type == RelationalTagConnection.TYPE_TO_TAG_CHILD) {
 					assert.ok(fruit_tags.has(tag), `${tag.name} not in fruit descendant tags`)
@@ -905,7 +892,7 @@ describe('relational_tags', function() {
 		
 		before(function() {
 			// reset tags
-			console.log(`debug reset tags`)
+			logger.debug(`reset tags`)
 			rt.clear()
 			
 			for (let name of tags) {
@@ -970,12 +957,12 @@ describe('relational_tags', function() {
 		it('can rename a tag', function() {
 			rt.remove_alias('color', undefined, undefined, '색깔')
 			assert.ok(!rt.all_tags.has('color'))
-			console.log(`info color (renamed) = ${rt.get('색깔', false)}`)
+			logger.info(`color (renamed) = ${rt.get('색깔', false)}`)
 			
 			rt.rename('색깔', 'color')
 			assert.ok(rt.all_tags.has('색깔'), 'rename preserves old aliases')
-			console.log(
-				`info color (restored)=${rt.get('color', false)}. aliases=${[...rt.get('color').aliases]}`
+			logger.info(
+				`color (restored)=${rt.get('color', false)}. aliases=${[...rt.get('color').aliases]}`
 			)
 			
 			assert.throws(
@@ -1026,7 +1013,7 @@ describe('relational_tags', function() {
 					false,		// include_entities
 					true		// include_tags
 				))
-				console.log(`debug tomato tags:\n${format_search(tomato_tags)}`)
+				logger.debug(`tomato tags:\n${format_search(tomato_tags)}`)
 				
 				assert.ok(tomato_tags.has(rt.get('scarlet', false), 'close alias scarlet missing'))
 				assert.ok(tomato_tags.has(rt.get('red', false, 'close name red missing')))
@@ -1042,7 +1029,7 @@ describe('relational_tags', function() {
 		
 		before(function() {
 			// reset tags
-			console.log(`debug reset tags`)
+			logger.debug(`reset tags`)
 			rt.clear()
 			
 			for (let tag of tags) {
@@ -1244,7 +1231,7 @@ describe('relational_tags', function() {
 			// serialize entities
 			assert.throws(
 				() => {
-					console.log(`debug with ent_raw=${tagged.toString()}`)
+					logger.debug(`with ent_raw=${tagged.toString()}`)
 				},
 				{
 					name: TypeError.name
@@ -1254,7 +1241,7 @@ describe('relational_tags', function() {
 
 			assert.throws(
 				() => {
-					console.log(`debug with ent_almost=${tagged.toString()}`)
+					logger.debug(`with ent_almost=${tagged.toString()}`)
 				},
 				{
 					name: RelationalTagException.name
