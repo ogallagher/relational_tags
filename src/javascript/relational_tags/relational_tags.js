@@ -9,7 +9,8 @@ const pino = require('pino').default
 const NotImplementedError = require('standard-errors/errors/not-implemented-error')
 
 const logger = pino({
-	name: 'relational-tags'
+	name: 'relational-tags',
+	level: 'error'
 })
 
 /**
