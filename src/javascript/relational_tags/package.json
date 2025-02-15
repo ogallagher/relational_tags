@@ -1,13 +1,13 @@
 {
   "name": "relational_tags",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Relational tagging library.",
   "main": "relational_tags.js",
   "types": "./types/relational_tags.d.ts",
   "type": "commonjs",
   "scripts": {
     "test": "mocha tests.js | npx pino-pretty -L error",
-    "build": "types && source ./build.sh",
+    "build": "npm run types && source ./build.sh",
     "types": "tsc",
     "doc": "source ./jsdocs.sh"
   },
