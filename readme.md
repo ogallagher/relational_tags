@@ -169,6 +169,10 @@ rt.search_entities_by_tag('fruit')
 # TODO save and load via json
 
 # TODO python aliasing implementation
+
+# TODO python weighted connections implementation
+
+# TODO python delete_entity implementation
 ```
 
 ## javascript
@@ -258,8 +262,15 @@ rt.connect(rt.get('sweet'), rt.get('apple'), undefined, 0.9)
 rt.connect(rt.get('sweet'), coffee, undefined, 0.05)
 rt.connect(rt.get('sweet'), rt.get('orange'), undefined, 0.8)
 // sort sweets by sweetness descending
-[...rt.get('sweet').connections.values()].sort((a,b) => b.weight - a.weight).map((conn) => conn.target)
+[...rt.get('sweet').connections.values()]
+.sort((a,b) => b.weight - a.weight)
+.map((conn) => conn.target.name)
 // [apple, orange, coffee]
+
+// delete_entity
+rt.delete_entity(coffee)
+rt.graph_path(rt.get('sweet'), coffee)
+// [] empty, not connected anymore
 ```
 
 ## java
@@ -362,6 +373,10 @@ public class RTApp {
         RelationalTag.loadJSON(json, null, null);
 				
         // TODO java aliasing implementation
+
+        // TODO java weighted connections implementation
+
+        // TODO java delete_entity implementation
     }
 }
 ```
