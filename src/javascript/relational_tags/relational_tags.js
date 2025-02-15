@@ -572,6 +572,28 @@ RelationalTag.delete = function(tag) {
 }
 
 /**
+ * Delete (untag) an existing entity.
+ * 
+ * Note this method fails silently, and will do nothing if the given entity is not tagged.
+ * 
+ * @memberof RelationalTag
+ * 
+ * @param {any} entity Entity instance to delete.
+ */
+RelationalTag.delete_entity = function(entity) {
+	if (RelationalTag.known(entity)) {
+		// remove all connections
+		for (let conn of RelationalTag._tagged_entities.get(entity).values()) {
+			RelationalTag.disconnect(conn)
+		}
+
+		// remove from _tagged_entities
+		RelationalTag._tagged_entities.delete(entity)
+	}
+	// else, do nothing
+}
+
+/**
  * Change the primary name of a tag.
  * This will retain the old name as an alias.
  * 

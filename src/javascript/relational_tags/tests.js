@@ -142,11 +142,12 @@ describe('relational_tags', function() {
 			assert.ok(true, 'constructor allows String instance')
 		})
 		
-		// TODO create some tags and entities before confirming clear
 		it('clears all existing tags and tagged entities', function() {
+			RelationalTag.new('t1').connect_to({name: 'e1'})
+
 			let num_tags = RelationalTag.all_tags.size
 			let num_cleared = RelationalTag.clear()
-			assert.equal(
+			assert.strictEqual(
 				num_tags, 
 				num_cleared, 
 				`tag count before clear ${num_tags} equals cleared count ${num_cleared}`
@@ -301,6 +302,30 @@ describe('relational_tags', function() {
 			rt.delete(missing)
 			
 			assert.equal(num_tags, Object.keys(rt.all_tags).length)
+		})
+	})
+
+	describe('delete_entity', function() {
+		it ('deletes existing entities and fails quietly on missing entities', function() {
+			let t1 = RelationalTag.new('t1')
+			let t2 = rt.new('t2')
+			let e1 = {name: 'e1'}
+
+			t1.connect_to(e1)
+			rt.connect(t2, e1)
+
+			// tags are connected through entity
+			let t1_t2 = RelationalTag.graph_path(t1, t2)
+			assert.strictEqual(t1_t2.length, 3)
+			assert.strictEqual(t1_t2[1], e1)
+
+			// tags are no longer connected without intermediate entity
+			rt.delete_entity(e1)
+			assert.ok(!RelationalTag._tagged_entities.has(e1))
+			assert.strictEqual(RelationalTag.graph_path(t1, t2).length, 0)
+
+			// delete again does nothing
+			RelationalTag.delete_entity(e1)
 		})
 	})
 	
