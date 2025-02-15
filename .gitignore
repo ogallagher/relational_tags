@@ -15,6 +15,9 @@ examples/python/rt_webapp/**/migrations/
 # javascript
 **/node_modules/
 **/package-lock.json
+src/javascript/**/package/
+src/javascript/**/types/
+**/*.tgz
 
 # java
 src/java/**/target/
