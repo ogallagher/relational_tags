@@ -184,7 +184,7 @@ RelationalTag.logger = logger
  * 
  * @memberOf RelationalTag
  */ 
-RelationalTag.VERSION = '0.3.6'
+RelationalTag.VERSION = '0.4.0'
 
 // RelationalTag static variables
 
