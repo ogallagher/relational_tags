@@ -1,6 +1,6 @@
 {
   "name": "relational_tags",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Relational tagging library.",
   "main": "relational_tags.js",
   "types": "./types/relational_tags.d.ts",
