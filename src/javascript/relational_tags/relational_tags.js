@@ -566,7 +566,7 @@ RelationalTag.delete = function(tag) {
 	}
 	
 	// remove all connections
-	for (let conn of Object.values(tag.connections)) {
+	for (let conn of tag.connections.values()) {
 		RelationalTag.disconnect(conn)
 	}
 }

@@ -280,28 +280,34 @@ describe('relational_tags', function() {
 		
 		it('deletes existing tags', function() {
 			let deleted = rt.new('deleted')
+			deleted.connect_to(rt.get('red'))
 			
 			rt.delete(deleted)
 			assert.ok(
-				rt.all_tags[deleted.name] === undefined, 
+				rt.all_tags.get(deleted.name) === undefined, 
 				`${deleted.name} not in rt.all_tags after delete by reference`
 			)
-			assert.ok(RelationalTag.all_tags[deleted.name] === undefined, `${deleted.name} not in RT.all_tags`)
+			assert.ok(RelationalTag.all_tags.get(deleted.name) === undefined, `${deleted.name} not in RT.all_tags`)
+
+			assert.ok(
+				!RelationalTag.get('red').connections.has(deleted),
+				`${deleted.name} not connected to red after delete`
+			)
 			
 			deleted = rt.new('deleted')
 			rt.delete(deleted.name)
 			assert.ok(
-				rt.all_tags[deleted.name] === undefined, 
+				rt.all_tags.get(deleted.name) === undefined, 
 				`${deleted.name} not in rt.all_tags after delete by name`
 			)
 		})
 		
 		it('fails to delete missing tags quietly', function() {
-			let num_tags = Object.keys(rt.all_tags).length
+			let num_tags = rt.all_tags.size
 			let missing = rt.new('missing')
 			rt.delete(missing)
 			
-			assert.equal(num_tags, Object.keys(rt.all_tags).length)
+			assert.equal(num_tags, rt.all_tags.size)
 		})
 	})
 
